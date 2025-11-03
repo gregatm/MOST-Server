@@ -1,0 +1,28 @@
+spring:
+  application.name: most-server
+
+  security:
+    oauth2:
+      client:
+        registration:
+          keycloak:
+            provider: keycloak
+            client-id: mostserver-client
+            client-secret: waCyo9eqxPsO5G3yMPOXGGV5STjxPg6V
+            authorization-grant-type: authorization_code
+            scope: openid
+        provider:
+          keycloak:
+            issuer-uri: http://localhost:8081/realms/mostserver
+  jpa:
+    hibernate:
+      ddl-auto=create:
+
+
+  r2dbc:
+    url: r2dbc:postgres://postgres:postgres@localhost/most
+logging:
+  level:
+    spring:
+      data:
+        r2dbc: DEBUG

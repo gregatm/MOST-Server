@@ -1,0 +1,25 @@
+services:
+  db:
+    image: "postgres:latest"
+    environment:
+      - POSTGRES_PASSWORD=postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - "db-data:/app/data"
+  sso:
+    image: "quay.io/keycloak/keycloak:latest"
+    environment:
+      - KC_DB_USERNAME=postgres
+      - KC_DB_PASSWORD=postgres
+      - KC_DB_URL=jdbc:postgresql://db/postgres
+      - KC_BOOTSTRAP_ADMIN_USERNAME=admin
+      - KC_BOOTSTRAP_ADMIN_PASSWORD=admin
+      - KC_DB=postgres
+    depends_on:
+      - db
+    command: start-dev
+    ports:
+      - "8081:8080"
+volumes:
+  db-data:
