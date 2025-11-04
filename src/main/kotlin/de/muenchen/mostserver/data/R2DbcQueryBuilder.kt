@@ -63,6 +63,7 @@ class R2DbcQueryBuilder<T>: QueryBuilder<T> {
     override fun select(s: Iterable<SqlField>): QueryBuilder<T> {
         val unknownField = s.map { it.clone() }
             .filter { it !is SqlAnySelect }
+            .filter { it !is AggregateFunction }
             .onEach { if (it.tableRef == null) it.tableRef = this.from }
             .any { !this.hasColumn(it) }
         if (unknownField) {

@@ -1,6 +1,5 @@
 package de.muenchen.mostserver.odata
 
-import de.muenchen.mostserver.config.EdmProvider
 import de.muenchen.mostserver.olingo.CsdlNavigationPropertyBuilder
 import jakarta.persistence.Column
 import jakarta.persistence.ManyToOne
@@ -15,6 +14,7 @@ import org.apache.olingo.commons.api.data.ValueType
 import org.apache.olingo.commons.api.edm.EdmPrimitiveTypeKind
 import org.apache.olingo.commons.api.edm.FullQualifiedName
 import org.apache.olingo.commons.api.edm.geo.Geospatial
+import org.apache.olingo.commons.api.edm.provider.CsdlComplexType
 import org.apache.olingo.commons.api.edm.provider.CsdlEdmProvider
 import org.apache.olingo.commons.api.edm.provider.CsdlEntityContainer
 import org.apache.olingo.commons.api.edm.provider.CsdlEntitySet
@@ -27,7 +27,9 @@ import org.springframework.data.annotation.Id
 import java.lang.reflect.Field
 import java.net.URI
 import java.time.LocalDateTime
+import java.util.Optional
 import java.util.UUID
+import java.util.stream.Collectors
 import kotlin.reflect.KClassifier
 import kotlin.reflect.full.findAnnotation
 import kotlin.reflect.full.memberProperties
@@ -37,17 +39,24 @@ class EdmEntityTypeFromClass {
 
 }
 
-fun getEdmEntityProviderAnnotation(clazz: Class<*>): EdmEntityProvider {
-    val annotation = clazz.annotations.find { a -> a is EdmEntityProvider } as EdmEntityProvider?
-    if (annotation == null) {
-        throw RuntimeException("Class $clazz has no EdmEntityProvider Annotation")
-    }
-
-    return annotation
+fun getEdmEntityProviderAnnotation(clazz: Class<*>): Optional<EdmEntityProvider> {
+    val annotation = clazz.getAnnotation(EdmEntityProvider::class.java)
+    return Optional.ofNullable(annotation)
 }
 
 fun getEdmEntityName(annotation: EdmEntityProvider, clazz: Class<*>): String {
     return annotation.type.ifEmpty { clazz.simpleName }
+}
+
+fun getEdmEntityFQN(clazz: Class<*>): Optional<FullQualifiedName> {
+    val a = getEdmEntityProviderAnnotation(clazz)
+    return a.map { FullQualifiedName(it.namespace, getEdmEntityName(it, clazz)) }
+}
+
+fun getEdmComplexTypeFQN(clazz: Class<*>): Optional<FullQualifiedName> {
+    return Optional.ofNullable(clazz.getAnnotation(EdmNamespace::class.java))
+        .map { a -> a.namespace }
+        .map { n -> FullQualifiedName(n, clazz.name) }
 }
 
 fun mapTypeIsCollection(field: Field): Boolean {
@@ -64,11 +73,9 @@ fun mapType(field: Field) : FullQualifiedName {
         UUID::class -> EdmPrimitiveTypeKind.Guid.fullQualifiedName
         LocalDateTime::class -> EdmPrimitiveTypeKind.DateTimeOffset.fullQualifiedName
         Geospatial::class -> EdmPrimitiveTypeKind.GeometryPolygon.fullQualifiedName
-        else -> {
-            val annotation = getEdmEntityProviderAnnotation(clazz.java)
-            val name = getEdmEntityName(annotation, clazz.java)
-            FullQualifiedName(annotation.namespace, name)
-        }
+        else -> getEdmEntityFQN(clazz.java)
+            .or { getEdmComplexTypeFQN(clazz.java) }
+            .orElseThrow()
     }
 }
 
@@ -93,7 +100,7 @@ fun mapToOneNavigationalProperty(field: Field, annotation: Annotation): CsdlNavi
     val clazz = field.type
 
     return CsdlNavigationPropertyBuilder()
-        .name(getEdmEntityName(getEdmEntityProviderAnnotation(clazz), clazz))
+        .name(getEdmEntityFQN(clazz).orElseThrow().name)
         .type(mapType(field))
         .nullable(optional)
         .collection(false)
@@ -110,20 +117,13 @@ fun getIdFieldName(clazz: Class<*>): List<String> {
 }
 
 fun getEntityTypeFromClass(clazz: Class<*>): R2DbcEntityType {
-    val annotation = getEdmEntityProviderAnnotation(clazz)
+    val annotation = getEdmEntityProviderAnnotation(clazz).orElseThrow()
 
     val entity = R2DbcEntityType()
     entity.name = getEdmEntityName(annotation, clazz)
     entity.typeClass = clazz
 
-    val properties = clazz.declaredFields
-        .filter { f -> f.annotations.none { it is EdmEntityEntityExclude } }
-        .filter { f -> f.annotations.none{  a ->
-            a is ManyToOne || a is OneToMany || a is OneToOne || a is ManyToMany}}
-        .map { f -> mapType(f)
-            CsdlProperty().setName(f.name).setType(mapType(f)).setCollection(mapTypeIsCollection(f))
-        }
-        .toList()
+    val properties = getPropertiesInType(clazz)
 
     val id = getIdFieldName(clazz)
         .map {
@@ -157,13 +157,13 @@ fun getEntityTypeFromClass(clazz: Class<*>): R2DbcEntityType {
 }
 
 fun getEntitySetNameFromEntity(clazz: Class<*>): String {
-    val annotation = getEdmEntityProviderAnnotation(clazz)
-    val c = annotation.type.ifEmpty { clazz.name }
-    return annotation.typeSet.ifEmpty { "${c}s" }
+    return getEdmEntityProviderAnnotation(clazz)
+            .map { it.typeSet.ifEmpty { "${it.type.ifEmpty { clazz.name }}s" } }
+            .orElseThrow()
 }
 
 fun getEntitySetFromEntity(clazz: Class<*>, entity: CsdlEntityType): CsdlEntitySet {
-    val annotation = getEdmEntityProviderAnnotation(clazz)
+    val annotation = getEdmEntityProviderAnnotation(clazz).orElseThrow()
     val set = CsdlEntitySet()
     set.setType(FullQualifiedName(annotation.namespace, entity.name))
     set.name = annotation.typeSet.ifEmpty { "${entity.name}s" }
@@ -188,14 +188,32 @@ fun getSchemasFromEntity(annotation: EdmEntityProvider, entity: CsdlEntityType,c
     return schema
 }
 
-fun createFromClass(clazzes: List<Class<*>>): EdmEntityProviderGenerated {
+fun getPropertiesInType(clazz: Class<*>): List<CsdlProperty> {
+    return clazz.declaredFields
+        .filter { f -> f.annotations.none { it is EdmEntityEntityExclude } }
+        .filter { f -> f.annotations.none{  a ->
+            a is ManyToOne || a is OneToMany || a is OneToOne || a is ManyToMany}}
+        .map { f -> mapType(f)
+            CsdlProperty().setName(f.name).setType(mapType(f)).setCollection(mapTypeIsCollection(f))
+        }
+        .toList()
+}
+
+fun getComplexTypeFromClass(clazz: Class<*>): CsdlComplexType {
+    val complex = CsdlComplexType()
+    complex.name = clazz.simpleName
+    complex.properties = getPropertiesInType(clazz)
+    return complex
+}
+
+fun createFromClass(entityClasses: List<Class<*>>, complexClasses: List<Class<*>>): EdmEntityProviderGenerated {
     var namespace: String? = null
     val entityMap = HashMap<String, R2DbcEntityType>()
     val schemas = ArrayList<CsdlSchema>()
     val entitySetMap = HashMap<String, CsdlEntitySet>()
     var container: CsdlEntityContainer? = null
-    for (clazz in clazzes) {
-        val annotation = getEdmEntityProviderAnnotation(clazz)
+    for (clazz in entityClasses) {
+        val annotation = getEdmEntityProviderAnnotation(clazz).orElseThrow()
         if (namespace == null) {
             namespace = annotation.namespace
         } else if (namespace != annotation.namespace){
@@ -217,7 +235,11 @@ fun createFromClass(clazzes: List<Class<*>>): EdmEntityProviderGenerated {
         schemas.add(getSchemasFromEntity(annotation, entity, container))
     }
 
-    return EdmEntityProviderGenerated(namespace!!, entityMap, container!!, entitySetMap, schemas)
+    val complexTypes = complexClasses.stream()
+        .map{ getComplexTypeFromClass(it) }
+        .collect(Collectors.toMap({ FullQualifiedName(namespace, it.name).fullQualifiedNameAsString }, {it}))
+
+    return EdmEntityProviderGenerated(namespace!!, complexTypes, entityMap, container!!, entitySetMap, schemas)
 }
 
 fun mapListValueType(obj: KClassifier?) : ValueType {

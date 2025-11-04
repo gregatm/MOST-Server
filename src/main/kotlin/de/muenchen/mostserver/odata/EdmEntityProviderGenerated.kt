@@ -2,6 +2,7 @@ package de.muenchen.mostserver.odata
 
 import org.apache.olingo.commons.api.edm.FullQualifiedName
 import org.apache.olingo.commons.api.edm.provider.CsdlAbstractEdmProvider
+import org.apache.olingo.commons.api.edm.provider.CsdlComplexType
 import org.apache.olingo.commons.api.edm.provider.CsdlEntityContainer
 import org.apache.olingo.commons.api.edm.provider.CsdlEntityContainerInfo
 import org.apache.olingo.commons.api.edm.provider.CsdlEntitySet
@@ -9,6 +10,7 @@ import org.apache.olingo.commons.api.edm.provider.CsdlEntityType
 import org.apache.olingo.commons.api.edm.provider.CsdlSchema
 
 class EdmEntityProviderGenerated(private val namespace: String,
+                                 private val csdlComplexType: Map<String, CsdlComplexType>,
                                  private val csdlEntityType: Map<String, R2DbcEntityType>,
                                  private val csdlEntityContainer: CsdlEntityContainer,
                                  private val csdlEntitySet: Map<String, CsdlEntitySet>,
@@ -19,6 +21,10 @@ class EdmEntityProviderGenerated(private val namespace: String,
             return csdlEntityType[entityTypeName.fullQualifiedNameAsString]
 
         return null
+    }
+
+    override fun getComplexType(complexTypeName: FullQualifiedName?): CsdlComplexType? {
+        return csdlComplexType[complexTypeName?.fullQualifiedNameAsString]
     }
 
     override fun getEntitySet(

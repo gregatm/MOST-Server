@@ -2,10 +2,15 @@ package de.muenchen.mostserver.data
 
 import jakarta.persistence.Table
 import org.apache.http.MethodNotSupportedException
+import org.apache.olingo.commons.api.data.Linked
+import org.springframework.data.domain.Sort
 import org.springframework.data.relational.core.sql.Join
+import org.springframework.data.relational.core.sql.OrderBy
+import org.springframework.data.relational.core.sql.OrderByField
 import java.util.LinkedList
 import java.util.Optional
 import java.util.function.Supplier
+import java.util.stream.Stream
 import kotlin.jvm.optionals.getOrNull
 
 abstract class QueryBuilder<T>(val clazz: Class<T>): ToSql {
@@ -138,7 +143,7 @@ open class SqlField(var tableRef: TableRef<*>?, val f: String) : SqlValue(), Clo
         }
     }
 
-    override fun toSql(sb: MutableList<Any?>): List<Any> {
+    override fun toSql(sb: MutableList<Any?>): List<Any?> {
         toSqlPrependTableRef(sb)
         sb.add("\"")
         sb.add(f)
@@ -177,6 +182,51 @@ class CountAggregateFunction(tableRef: TableRef<*>?, f: String = "*"): Aggregate
         val field = CountAggregateFunction(tableRef, f)
         field.alias = alias
         return field
+    }
+}
+
+class ArrayRemoveFunction(tableRef: TableRef<*>?, val array: SqlField, val literal: SqlLiteral<*>): AggregateFunction(tableRef, "") {
+    override fun toSql(sb: MutableList<Any?>): List<Any?> {
+        val params = LinkedList<Any?>()
+        sb.add("ARRAY_REMOVE(")
+        params.addAll(array.toSql(sb))
+        sb.add(", ")
+        params.addAll(literal.toSql(sb))
+        sb.add(")")
+        return params
+    }
+
+    override fun clone(): SqlField {
+        val c = ArrayRemoveFunction(tableRef, array, literal)
+        c.alias = alias
+        return c
+    }
+}
+
+fun <T, R> List<T>.join(separator: () -> R, operator: (T) -> R, prefix: () -> Any?) {
+    if (this.isEmpty()) return
+    prefix()
+    operator(this[0])
+    this.drop(1).map {
+        separator()
+        operator(it)
+    }
+}
+
+class ArrayAggregateFunction(tableRef: TableRef<*>?, val field: SqlField, val orderBy: List<Pair<SqlField, Sort.Direction>>?, val distinct: Boolean = false): AggregateFunction(tableRef, "") {
+    override fun toSql(sb: MutableList<Any?>): List<Any?> {
+        val params = LinkedList<Any?>()
+        sb.add("ARRAY_AGG(")
+        if (distinct) sb.add("DISTINCT ")
+        params.addAll(field.toSql(sb))
+        orderBy?.join({ sb.add(", ") }, {params.addAll(it.first.toSql(sb)); sb.add(" ${it.second.name} ")}, {sb.add(" ORDER BY ")})
+        return params
+    }
+
+    override fun clone(): SqlField {
+        val c = ArrayAggregateFunction(tableRef, field, orderBy)
+        c.alias = alias
+        return c
     }
 }
 

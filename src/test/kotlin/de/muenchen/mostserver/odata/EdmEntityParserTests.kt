@@ -10,6 +10,7 @@ import de.muenchen.mostserver.data.SqlLiteral
 import de.muenchen.mostserver.data.dao.DatastreamDao
 import de.muenchen.mostserver.data.dao.SensorDao
 import de.muenchen.mostserver.data.dao.ThingDao
+import de.muenchen.mostserver.data.dao.UnitOfMeasurement
 import io.micrometer.core.instrument.util.IOUtils
 import io.r2dbc.spi.Batch
 import io.r2dbc.spi.Option
@@ -52,10 +53,17 @@ import kotlin.test.assertEquals
 class EdmEntityParserTests {
 
 
+    fun getProvider(): EdmEntityProviderGenerated {
+        return createFromClass(
+            listOf(ThingDao::class.java, SensorDao::class.java, DatastreamDao::class.java),
+            listOf(UnitOfMeasurement::class.java)
+        )
+    }
+
     @Test
     fun parseThing() {
 
-        val provider = createFromClass(listOf(ThingDao::class.java))
+        val provider = getProvider()
         assertEquals("Thing", provider.getEntityType(FullQualifiedName("Odata.MOSTServer", "Thing"))!!.name)
 
     }
@@ -63,7 +71,7 @@ class EdmEntityParserTests {
     @Test
     fun parseSelect() {
         val selectStatement = "id,name"
-        val provider = createFromClass(listOf(ThingDao::class.java, SensorDao::class.java, DatastreamDao::class.java))
+        val provider = getProvider()
         val edm = EdmProviderImpl(provider)
         val parser = SelectParser(edm)
         val csdlEntity = getEntityTypeFromClass(ThingDao::class.java)
@@ -77,9 +85,9 @@ class EdmEntityParserTests {
     @Test
     fun serializeThing() {
 
-        val t = Thing(UUID.randomUUID(), "ThingName")
+        val t = ThingDao(UUID.randomUUID())
 
-        val provider = createFromClass(listOf(Thing::class.java))
+        val provider = getProvider()
         val edm = EdmProviderImpl(provider)
 
         val serializer = ODataJsonSerializer(ContentType.JSON, Constantsv01())
@@ -106,7 +114,7 @@ class EdmEntityParserTests {
 
     @Test
     fun complexQuery() {
-        val provider = createFromClass(listOf(ThingDao::class.java, SensorDao::class.java, DatastreamDao::class.java))
+        val provider = getProvider()
         val edm = EdmProviderImpl(provider)
         val query = "OData/Odata.MOSTServer/Things(${UUID.randomUUID()})/Datastreams?\$expand=Sensor(\$select=name&\$filter=startswith(name, 'test'))&\$filter=contains(name, 'test') and name eq 'test 1'&\$orderby=Datasreams/\$count&\$top=10&\$skip=10&\$count=true"
 
@@ -174,14 +182,14 @@ class EdmEntityParserTests {
         val tf = ThingDao(UUID.randomUUID())
         val dp = createProxy(d, context)
         val tp = createProxy(tf, context)
-        val dc = DatastreamDao(d.id, "DatastreamName", "DatastreamDescription", null, null, null, null, tp)
+        val dc = DatastreamDao(d.id, "DatastreamName", "DatastreamDescription", null, null, null, null, null, tp)
         val t = ThingDao(tf.id, 0, "ThingName", listOf(dp))
 
         context.addParameters(dc)
         context.addParameters(t)
 
 
-        val provider = createFromClass(listOf(ThingDao::class.java, DatastreamDao::class.java, SensorDao::class.java))
+        val provider = getProvider()
         val edm = EdmProviderImpl(provider)
 
         val serializer = ODataJsonSerializer(ContentType.JSON, Constantsv01())

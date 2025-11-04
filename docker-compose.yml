@@ -1,6 +1,6 @@
 services:
   db:
-    image: "postgres:latest"
+    image: "docker.io/library/postgres:latest"
     environment:
       - POSTGRES_PASSWORD=postgres
     ports:
