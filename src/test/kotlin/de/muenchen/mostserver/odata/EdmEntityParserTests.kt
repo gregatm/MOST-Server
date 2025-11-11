@@ -1,19 +1,18 @@
 package de.muenchen.mostserver.odata
 
 import de.muenchen.mostserver.controller.dto.Thing
-import de.muenchen.mostserver.data.AndPredicate
-import de.muenchen.mostserver.data.EqPredicate
-import de.muenchen.mostserver.data.Predicate
 import de.muenchen.mostserver.data.QueryBuilder
-import de.muenchen.mostserver.data.SqlField
-import de.muenchen.mostserver.data.SqlLiteral
 import de.muenchen.mostserver.data.dao.DatastreamDao
+import de.muenchen.mostserver.data.dao.ProjectDao
 import de.muenchen.mostserver.data.dao.SensorDao
 import de.muenchen.mostserver.data.dao.ThingDao
 import de.muenchen.mostserver.data.dao.UnitOfMeasurement
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import io.micrometer.core.instrument.util.IOUtils
 import io.r2dbc.spi.Batch
-import io.r2dbc.spi.Option
+import jakarta.persistence.Persistence
+import jakarta.persistence.criteria.CriteriaQuery
+import jakarta.persistence.criteria.Selection
 import org.apache.olingo.commons.api.constants.Constantsv01
 import org.apache.olingo.commons.api.data.ContextURL
 import org.apache.olingo.commons.api.edm.FullQualifiedName
@@ -23,30 +22,40 @@ import org.apache.olingo.commons.core.edm.EdmEntityTypeImpl
 import org.apache.olingo.commons.core.edm.EdmProviderImpl
 import org.apache.olingo.server.api.OData
 import org.apache.olingo.server.api.serializer.EntitySerializerOptions
-import org.apache.olingo.server.api.uri.UriParameter
-import org.apache.olingo.server.api.uri.UriResourceEntitySet
-import org.apache.olingo.server.api.uri.UriResourceKind
-import org.apache.olingo.server.api.uri.UriResourceNavigation
 import org.apache.olingo.server.core.ServiceMetadataImpl
 import org.apache.olingo.server.core.serializer.json.ODataJsonSerializer
 import org.apache.olingo.server.core.uri.parser.ExpandParser
 import org.apache.olingo.server.core.uri.parser.Parser
 import org.apache.olingo.server.core.uri.parser.SelectParser
 import org.apache.olingo.server.core.uri.parser.UriTokenizer
+import org.apache.openjpa.conf.OpenJPAConfigurationImpl
+import org.apache.openjpa.meta.MetaDataRepository
+import org.apache.openjpa.persistence.PersistenceMetaDataFactory
+import org.apache.openjpa.persistence.criteria.CriteriaBuilderImpl
+import org.apache.openjpa.persistence.criteria.OpenJPACriteriaQuery
+import org.apache.openjpa.persistence.meta.MetamodelImpl
+import org.apache.openjpa.persistence.meta.Types
+import org.apache.openjpa.persistence.query.LiteralExpression
+import org.apache.openjpa.persistence.query.ParameterExpression
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.TestInstance
+import org.junit.jupiter.api.extension.ExtendWith
+import org.junit.jupiter.api.extension.RegisterExtension
+import org.springframework.boot.actuate.autoconfigure.metrics.MetricsProperties
 import org.springframework.boot.r2dbc.ConnectionFactoryBuilder
 import org.springframework.data.r2dbc.core.DefaultReactiveDataAccessStrategy
 import org.springframework.data.r2dbc.dialect.DialectResolver
-import org.springframework.data.relational.core.sql.Conditions
 import org.springframework.data.relational.core.sql.Join.JoinType
-import org.springframework.data.relational.core.sql.StatementBuilder
-import org.springframework.data.relational.core.sql.Table
 import reactor.core.publisher.Mono
 import reactor.kotlin.core.publisher.toFlux
 import java.net.URI
+import java.net.URL
+import java.time.Duration
+import java.time.temporal.TemporalUnit
 import java.util.Optional
+import java.util.Properties
 import java.util.UUID
-import java.util.function.Function
+
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
 
@@ -64,7 +73,8 @@ class EdmEntityParserTests {
     fun parseThing() {
 
         val provider = getProvider()
-        assertEquals("Thing", provider.getEntityType(FullQualifiedName("Odata.MOSTServer", "Thing"))!!.name)
+        assertEquals("Thing", provider.
+                getEntityType(FullQualifiedName("Odata.MOSTServer", "Thing"))!!.name)
 
     }
 
@@ -217,4 +227,50 @@ class EdmEntityParserTests {
         val result = serializer.entity(serviceMetadata,edmEntity, entity, options)
         val stringo = IOUtils.toString(result.content)
     }
+
+
+
+    @Test
+    fun createDb() {
+
+        val config = OpenJPAConfigurationImpl()
+
+        val factory = PersistenceMetaDataFactory()
+
+
+        val metaRepos = MetaDataRepository()
+        metaRepos.setConfiguration(config)
+        metaRepos.metaDataFactory = factory
+        metaRepos.addMetaData(ThingDao::class.java)
+        metaRepos.addMetaData(DatastreamDao::class.java)
+        metaRepos.addMetaData(SensorDao::class.java)
+        val metamodel = MetamodelImpl(metaRepos)
+
+        Types.Entity<ThingDao>(metaRepos.getMetaData(ThingDao::class.java, null, false), metamodel)
+
+        metaRepos.getMetaData(ThingDao::class.java, null, false)
+
+
+        val b = CriteriaBuilderImpl().setMetaModel(metamodel)
+        val q = b.createQuery(ThingDao::class.java)
+
+
+        val r = q.from(ThingDao::class.java)
+        //val d = q.from(DatastreamDao::class.java)
+        val j = r.join<ThingDao, DatastreamDao>("datastreams", jakarta.persistence.criteria.JoinType.LEFT)
+        j.on(b.equal(r.get<ThingDao>("id"), j.get<DatastreamDao>("thing")))
+        //q.select(r.get("id"))
+        //q.select(r.get("name"))
+        q.groupBy(r.get<ThingDao>("id"), r.get<ThingDao>("name"))
+
+        val t = q.multiselect(
+            r.get<ThingDao>("id").alias("id"),
+            r.get<ThingDao>("name").alias("name"),
+            b.function("array_remove", ThingDao::class.java,
+                b.function("array_agg", ThingDao::class.java,j.get<DatastreamDao>("id")
+                ), b.literal(null)).alias("datastreams"))
+
+        val sql = (q as OpenJPACriteriaQuery).toCQL()
+    }
+
 }

@@ -3,9 +3,11 @@ package de.muenchen.mostserver.data.dao;
 import de.muenchen.mostserver.odata.EdmEntityAsType;
 import de.muenchen.mostserver.odata.EdmEntityEntityExclude;
 import de.muenchen.mostserver.odata.EdmEntityProvider;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
 import jakarta.persistence.OneToMany;
+import jakarta.persistence.Id;
 import lombok.*;
-import org.springframework.data.annotation.Id;
 import org.springframework.data.relational.core.mapping.Table;
 
 import java.util.List;
@@ -16,13 +18,15 @@ import java.util.UUID;
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
+@Entity(name = "Thing")
 @EdmEntityProvider(namespace = "Odata.MOSTServer", type = "Thing")
-public class ThingDao implements IDao{
+public class ThingDao {
 
     @Id
     private UUID id;
 
     @EdmEntityEntityExclude
+    @Column(name = "acl_id")
     private long aclId;
 
     private String name;
