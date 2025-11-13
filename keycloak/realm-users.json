@@ -1,0 +1,42 @@
+{
+    "users": [
+    {
+      "id": "c2ceb36f-75b9-4a22-9ee7-5879314a217f",
+      "username": "user",
+      "emailVerified": true,
+      "enabled": true,
+      "createdTimestamp": 1763032151565,
+      "totp": false,
+      "requiredActions": [],
+      "realmRoles": [
+        "default-roles-most-server"
+      ]
+    },
+    {
+      "id": "c2ceb36f-75b9-4a22-9ee7-5879314a217a",
+      "username": "reader",
+      "email": "reader@reader",
+      "emailVerified": true,
+      "enabled": true,
+      "createdTimestamp": 1763032151565,
+      "totp": false,
+      "requiredActions": [],
+      "realmRoles": [
+        "default-roles-most-server"
+      ]
+    },
+    {
+      "id": "c2ceb36f-75b9-4a22-9ee7-5879314a217b",
+      "username": "admin",
+      "email": "admin@admin",
+      "emailVerified": true,
+      "enabled": true,
+      "createdTimestamp": 1763032151565,
+      "totp": false,
+      "requiredActions": [],
+      "realmRoles": [
+        "default-roles-most-server"
+      ]
+    }
+  ]
+}
