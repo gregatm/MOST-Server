@@ -6,23 +6,21 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-import java.util.UUID;
+import java.time.LocalDateTime;
 
 @Entity
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-public class Book {
+public class Order {
 
     @Id
-    private UUID id;
-    private String name;
+    private Integer id;
 
     @ManyToOne
-    @JoinColumn(name = "author_id")
-    private Author author;
+    private Book book;
 
-    @Embedded
-    private BookAttributes attributes;
+    @Version
+    private LocalDateTime version;
 }

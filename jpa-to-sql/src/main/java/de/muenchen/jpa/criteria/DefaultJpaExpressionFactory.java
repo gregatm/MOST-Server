@@ -52,17 +52,17 @@ public class DefaultJpaExpressionFactory extends AbstractJpaExpressionFactory {
 
     @Override
     public CriteriaQuery<Tuple> createTupleQuery() {
-        return null;
+        throw new IllegalStateException("Not yet implemented");
     }
 
     @Override
     public <T> CriteriaUpdate<T> createCriteriaUpdate(Class<T> aClass) {
-        return null;
+        return new JpaCriteriaUpdate<>(aClass, this);
     }
 
     @Override
     public <T> CriteriaDelete<T> createCriteriaDelete(Class<T> aClass) {
-        return null;
+        return new JpaCriteriaDelete<>(aClass, this);
     }
 
     @Override
