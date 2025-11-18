@@ -1,5 +1,7 @@
 package de.muenchen.mostserver.data.jpa.criteria;
 
+import de.muenchen.mostserver.data.jpa.meta.SqlIdentifier;
+import jakarta.persistence.Query;
 import jakarta.persistence.criteria.Expression;
 import jakarta.persistence.criteria.Path;
 import jakarta.persistence.metamodel.*;
@@ -8,26 +10,18 @@ import org.apache.openjpa.persistence.meta.Members;
 import java.util.Collection;
 import java.util.Map;
 
-public class JpaPath<Z, X> extends JpaExpression<X> implements Path<X> {
-    private final JpaPath<?, Z> parent;
-    private final Members.Member<? super Z, ?> member;
+public class JpaPath<X> extends JpaExpression<X> implements Path<X> {
+    private final Path<?> parent;
+    private final Attribute<?, X> member;
 
-    protected JpaPath(Class<X> cls) {
-        this(null, null, cls);
-    }
-
-    protected JpaPath(Class<X> cls, JpaExpressionFactory factory) {
-        this(null, null, cls, factory);
-    }
-
-    public JpaPath(JpaPath<?, Z> parent, Members.Member<? super Z, ?> member, Class<X> cls) {
-        super(cls);
-        this.parent = parent;
-        this.member = member;
-    }
-
-    public JpaPath(JpaPath<?, Z> parent, Members.Member<? super Z, ?> member, Class<X> cls, JpaExpressionFactory factory) {
+    protected JpaPath(Class<X> cls, AbstractJpaExpressionFactory factory) {
         super(cls, factory);
+        this.parent = null;
+        this.member = null;
+    }
+
+    public JpaPath(Path<?> parent, Attribute<?, X> member, AbstractJpaExpressionFactory factory) {
+        super((Class<X>) parent.getModel().getBindableJavaType(), factory);
         this.parent = parent;
         this.member = member;
     }
@@ -41,7 +35,7 @@ public class JpaPath<Z, X> extends JpaExpression<X> implements Path<X> {
     }
 
     @Override
-    public Path<Z> getParentPath() {
+    public Path<?> getParentPath() {
         return parent;
     }
 
@@ -50,7 +44,7 @@ public class JpaPath<Z, X> extends JpaExpression<X> implements Path<X> {
         if (getType() != attr.getDeclaringType()) {
             attr = (SingularAttribute)((ManagedType)getType()).getAttribute(attr.getName());
         }
-        return new JpaPath<>(this, (Members.SingularAttributeImpl<? super X, Y>)attr, attr.getJavaType());
+        return new JpaPath<>(this, attr, factory);
     }
 
     @Override
@@ -58,7 +52,7 @@ public class JpaPath<Z, X> extends JpaExpression<X> implements Path<X> {
         if (getType() != coll.getDeclaringType()) {
             coll = (PluralAttribute)((ManagedType)getType()).getAttribute(coll.getName());
         }
-        return new JpaPath<>(this, (Members.PluralAttributeImpl<? super X, C, E>)coll, coll.getJavaType());
+        return new JpaPath<>(this, coll, factory);
     }
 
     @Override
@@ -66,7 +60,8 @@ public class JpaPath<Z, X> extends JpaExpression<X> implements Path<X> {
         if (getType() != map.getDeclaringType()) {
             map = (MapAttribute)((ManagedType)getType()).getAttribute(map.getName());
         }
-        return new JpaPath<>(this, (Members.MapAttributeImpl<? super X,K,V>)map, (Class<M>)map.getJavaType());
+        // TODO Cast should be unnecessary
+        return (Expression<M>) new JpaPath<>(this, map, factory);
     }
 
     @Override
@@ -81,12 +76,26 @@ public class JpaPath<Z, X> extends JpaExpression<X> implements Path<X> {
             throw new IllegalArgumentException(this + " is a basic path and can not be navigated to " + attName);
         }
 
-        Members.Member<? super X, Y> next = (Members.Member<? super X, Y>)
-                ((ManagedType<? super X>)type).getAttribute(attName);
-        return new JpaPath<>(this, next, next.getJavaType());
+        var next = (Attribute<?, Y>) ((ManagedType<Y>) type).getAttribute(attName);
+        return new JpaPath<>(this, next, factory);
     }
 
     public Type<?> getType() {
-        return member.getType();
+        return member.getDeclaringType();
+    }
+
+    @Override
+    public void toSql(StringBuilder sb, AliasContext context, Query params) {
+        sb.append('"');
+        if (parent != null) {
+            sb.append(parent.getAlias());
+            sb.append('.');
+        }
+        if (this.member instanceof SqlIdentifier m) {
+            sb.append(m.getSqlIdentifier());
+        } else {
+            sb.append(this.member.getName());
+        }
+        sb.append('"');
     }
 }

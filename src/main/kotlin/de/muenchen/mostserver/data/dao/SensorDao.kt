@@ -16,7 +16,7 @@ open class SensorDao(@Id var id: UUID?,
                      open var name: String? = null,
                      @EdmEntityAsType(DatastreamDao::class, isCollection = true)
                 @OneToMany
-                var datastreams: Collection<DatastreamDao>? = null,
+                var datastreams: List<DatastreamDao>? = null,
                      @ManyToOne
                 @JoinColumn
                 var project: ProjectDao? = null

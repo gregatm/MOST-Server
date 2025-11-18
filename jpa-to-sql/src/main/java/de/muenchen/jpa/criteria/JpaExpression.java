@@ -1,8 +1,7 @@
-package de.muenchen.mostserver.data.jpa.criteria;
+package de.muenchen.jpa.criteria;
 
 import jakarta.persistence.criteria.Expression;
 import jakarta.persistence.criteria.Predicate;
-import org.apache.commons.lang3.NotImplementedException;
 
 import java.util.Arrays;
 import java.util.Collection;
@@ -82,7 +81,7 @@ public abstract class JpaExpression<X> extends JpaSelection<X> implements Expres
 
     @Override
     public <X1> Expression<X1> cast(Class<X1> aClass) {
-        throw new NotImplementedException();
+        throw new IllegalStateException();
     }
 
 }

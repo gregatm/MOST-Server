@@ -1,13 +1,13 @@
-package de.muenchen.mostserver.data.jpa.criteria;
+package de.muenchen.jpa.criteria;
 
-import de.muenchen.mostserver.data.jpa.JpaCriteriaQuery;
+import de.muenchen.jpa.JpaSqlRequestBuilder;
+import jakarta.persistence.Parameter;
 import jakarta.persistence.Query;
 import jakarta.persistence.Tuple;
 import jakarta.persistence.criteria.*;
 import jakarta.persistence.metamodel.EntityType;
 import jakarta.persistence.metamodel.Metamodel;
 import lombok.Getter;
-import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 
 import java.math.BigDecimal;
@@ -90,26 +90,6 @@ public class DefaultJpaExpressionFactory extends AbstractJpaExpressionFactory {
 
     @Override
     public CompoundSelection<Object[]> array(List<Selection<?>> list) {
-        return null;
-    }
-
-    @Override
-    public Order asc(Expression<?> e) {
-        return null;
-    }
-
-    @Override
-    public Order desc(Expression<?> e) {
-        return null;
-    }
-
-    @Override
-    public Order asc(Expression<?> e, Nulls nulls) {
-        return null;
-    }
-
-    @Override
-    public Order desc(Expression<?> e, Nulls nulls) {
         return null;
     }
 
@@ -704,12 +684,12 @@ public class DefaultJpaExpressionFactory extends AbstractJpaExpressionFactory {
         }
 
         @Override
-        public void toSql(StringBuilder sb, AliasContext context, Query params) {
-            ((JpaSql) left).toSql(sb, context, params);
+        public void toSql(StringBuilder sb, AliasContext context, List<Parameter<?>> params) {
+            JpaSqlRequestBuilder.build(sb, context, params, left);
             sb.append(' ');
             sb.append(operator);
             sb.append(' ');
-            ((JpaSql) right).toSql(sb, context, params);
+            JpaSqlRequestBuilder.build(sb, context, params, right);
         }
     }
 

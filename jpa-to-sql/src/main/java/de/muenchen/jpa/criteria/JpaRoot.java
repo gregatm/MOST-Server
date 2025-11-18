@@ -1,4 +1,4 @@
-package de.muenchen.mostserver.data.jpa.criteria;
+package de.muenchen.jpa.criteria;
 
 import jakarta.persistence.criteria.Root;
 import jakarta.persistence.metamodel.EntityType;
@@ -11,6 +11,6 @@ public class JpaRoot<X> extends JpaFrom<X, X> implements Root<X> {
 
     @Override
     public EntityType<X> getModel() {
-        return (EntityType<X>) this.type;
+        return (EntityType<X>) this.getType();
     }
 }

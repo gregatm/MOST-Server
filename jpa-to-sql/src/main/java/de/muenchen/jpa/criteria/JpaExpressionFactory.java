@@ -1,6 +1,8 @@
-package de.muenchen.mostserver.data.jpa.criteria;
+package de.muenchen.jpa.criteria;
 
-import jakarta.persistence.criteria.*;
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.Expression;
+import jakarta.persistence.criteria.Path;
 
 public interface JpaExpressionFactory extends CriteriaBuilder {
 

@@ -12,6 +12,13 @@ Alternative to FROST Server
 * [UMA](https://docs.kantarainitiative.org/uma/rec-uma-core.html) Resource based authorization
 * [MQTT Sparkplug B](https://sparkplug.eclipse.org/specification/) *TBD*
 
+## Features
+
+* Permission-based authorization
+* OData compatible API
+* Object auditing
+* Optimistic locking
+
 ## Design Targets
 
 * Use of existing standards - *Easy integration into custom environment*
@@ -19,6 +26,6 @@ Alternative to FROST Server
 * Permission-based access control - *allow fine granular control over resources and flexible user patterns*
 * Offer interface for commonly used data interactions out-of-the-box
 * Extendability of data interface for custom use cases
-* Scalability *native support for clustering*
-* High-availability *native support for distributed deployment*
+* Scalability - *native support for clustering*
+* High-availability - *native support for distributed deployment*
 * Functional programming style approach - *easy understanding of code flow and testability*

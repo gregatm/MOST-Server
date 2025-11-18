@@ -1,8 +1,8 @@
-package de.muenchen.mostserver.data.jpa.criteria;
+package de.muenchen.jpa.criteria;
 
+import jakarta.persistence.Parameter;
 import jakarta.persistence.Query;
 import jakarta.persistence.criteria.Selection;
-import org.apache.openjpa.persistence.util.ReservedWords;
 
 import java.util.List;
 
@@ -52,7 +52,8 @@ public abstract class JpaSelection<X> implements Selection<X>, JpaSql {
             throw new IllegalArgumentException(name + " contains reserved symbol " + ch);
     }
 
-    public void toSql(StringBuilder sb, AliasContext context, Query params) {
+    @Override
+    public void toSql(StringBuilder sb, AliasContext context, List<Parameter<?>> params) {
         sb.append("<NOT IMPLEMENTED>");
     }
 }

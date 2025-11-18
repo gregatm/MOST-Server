@@ -1,6 +1,5 @@
-package de.muenchen.mostserver.data.jpa.criteria;
+package de.muenchen.jpa.criteria;
 
-import de.muenchen.mostserver.data.jpa.meta.EntityTypeImpl;
 import jakarta.persistence.criteria.*;
 import jakarta.persistence.metamodel.*;
 
@@ -10,27 +9,14 @@ import java.util.Set;
 public class JpaFrom<Z, X> extends JpaPath<X> implements From<Z, X> {
 
     private final Set<Join<X, ?>> joins = new HashSet<>();
-    protected final Type<X> type;
 
-    public JpaFrom(ManagedType<X> type, AbstractJpaExpressionFactory factory) {
-        super(type.getJavaType(), factory);
-        this.type = type;
+    public JpaFrom(EntityType<X> type, AbstractJpaExpressionFactory factory) {
+        super(type, factory);
     }
 
-    public JpaFrom(Path<?> parent, Attribute<?, X> member, ManagedType<X> type, AbstractJpaExpressionFactory factory) {
+    public JpaFrom(Path<?> parent, Bindable<X> member, AbstractJpaExpressionFactory factory) {
         super(parent, member, factory);
-        this.type = type;
     }
-
-
-    @Override
-    public Bindable<X> getModel() {
-        if (type instanceof EntityTypeImpl<X> r) {
-            return r;
-        }
-        throw new IllegalStateException("Is not bindable");
-    }
-
 
     @Override
     public Set<Join<X, ?>> getJoins() {
@@ -58,7 +44,7 @@ public class JpaFrom<Z, X> extends JpaPath<X> implements From<Z, X> {
 
     @Override
     public <Y> Join<X, Y> join(Class<Y> clazz, JoinType joinType) {
-        var j = factory.join(this, this.type.getJavaType(), clazz, joinType);
+        var j = factory.join(this, ((ManagedType<X>) this.getType()).getJavaType(), clazz, joinType);
         joins.add(j);
         return j;
     }
@@ -206,10 +192,5 @@ public class JpaFrom<Z, X> extends JpaPath<X> implements From<Z, X> {
     @Override
     public <X1, Y> Fetch<X1, Y> fetch(String s, JoinType joinType) {
         return null;
-    }
-
-    @Override
-    public Type<?> getType() {
-        return type;
     }
 }

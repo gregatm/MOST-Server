@@ -39,6 +39,7 @@
         <tag/>
         <url/>
     </scm>
+
     <dependencies>
         <dependency>
             <groupId>jakarta.persistence</groupId>
