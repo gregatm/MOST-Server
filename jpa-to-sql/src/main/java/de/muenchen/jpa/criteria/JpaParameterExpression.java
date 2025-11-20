@@ -37,17 +37,6 @@ public class JpaParameterExpression<T> extends JpaExpression<T> implements Param
     }
 
     @Override
-    public void toSql(StringBuilder sb, AliasContext context, List<Parameter<?>> params) {
-        var idx = params.indexOf(this) + 1;
-        if (idx == 0) {
-            params.add(this);
-            idx = params.size();
-        }
-        sb.append('$');
-        sb.append(idx);
-    }
-
-    @Override
     public boolean equals(Object o) {
         if (name == null && position == null) {
             return super.equals(o);

@@ -46,7 +46,7 @@ public class PostgresReturningTest {
         var builder = new StringBuilder();
         List<Parameter<?>> params = new ArrayList<>();
         ((JpaCriteriaUpdate<Author>) query).select(root.get("id"));
-        JpaSqlUpdateBuilder.build(builder, query, params, author);
+        JpaSqlUpdateBuilder.build(builder, query, params);
         var sql = builder.toString();
 
         assertEquals("INSERT INTO Author(name) VALUES($1) RETURNING id", sql);
@@ -63,7 +63,7 @@ public class PostgresReturningTest {
         var builder = new StringBuilder();
         List<Parameter<?>> params = new ArrayList<>();
         ((JpaCriteriaUpdate<Author>) query).select(factory.construct(Author.class, root.get("id"), root.get("name")));
-        JpaSqlUpdateBuilder.build(builder, query, params, author);
+        JpaSqlUpdateBuilder.build(builder, query, params);
         var sql = builder.toString();
 
         assertEquals("UPDATE Author SET name = $1 WHERE id = $2 RETURNING id,name", sql);

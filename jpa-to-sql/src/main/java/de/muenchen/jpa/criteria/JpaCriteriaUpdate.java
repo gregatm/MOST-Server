@@ -13,7 +13,7 @@ public class JpaCriteriaUpdate<T> extends JpaCommonAbstractCriteria<T> implement
     private Root<T> root = null;
     private Selection<T> selects = null;
 
-    private final Set<Expression<?>> sets = new LinkedHashSet<>();
+    private final List<AbstractMap.SimpleImmutableEntry<Path<?>, Expression<?>>> sets = new ArrayList<>();
 
     public JpaCriteriaUpdate(Class<T> clazz, AbstractJpaExpressionFactory factory) {
         super(clazz, factory);
@@ -68,7 +68,7 @@ public class JpaCriteriaUpdate<T> extends JpaCommonAbstractCriteria<T> implement
 
     @Override
     public <Y> CriteriaUpdate<T> set(Path<Y> path, Expression<? extends Y> expression) {
-        sets.add(getFactory().equal(path, expression));
+        sets.add(new AbstractMap.SimpleImmutableEntry<>(path, expression));
         return this;
     }
 
@@ -98,5 +98,9 @@ public class JpaCriteriaUpdate<T> extends JpaCommonAbstractCriteria<T> implement
     @Override
     public Predicate getRestriction() {
         return wheres;
+    }
+
+    public List<Map.Entry<Path<?>, Expression<?>>> getSets() {
+        return Collections.unmodifiableList(sets);
     }
 }

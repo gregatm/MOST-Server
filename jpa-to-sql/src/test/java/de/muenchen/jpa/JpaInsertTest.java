@@ -59,7 +59,7 @@ public class JpaInsertTest {
 
         var builder = new StringBuilder();
         List<Parameter<?>> params = new ArrayList<>();
-        JpaSqlUpdateBuilder.build(builder, query, params, author);
+        JpaSqlInsertBuilder.build(builder, query, params);
         var sql = builder.toString();
 
         assertEquals("INSERT INTO Author(name) VALUES($1)", sql);
@@ -79,7 +79,7 @@ public class JpaInsertTest {
 
         var builder = new StringBuilder();
         List<Parameter<?>> params = new ArrayList<>();
-        JpaSqlUpdateBuilder.build(builder, query, params, book);
+        JpaSqlInsertBuilder.build(builder, query, params);
         var sql = builder.toString();
 
         assertEquals("INSERT INTO Book(name, attributes_category, attributes_yearOfPublishing) VALUES($1, $2, $3);", sql);
@@ -98,7 +98,7 @@ public class JpaInsertTest {
 
         var builder = new StringBuilder();
         List<Parameter<?>> params = new ArrayList<>();
-        JpaSqlUpdateBuilder.build(builder, query, params, book);
+        JpaSqlInsertBuilder.build(builder, query, params);
         var sql = builder.toString();
 
         assertEquals("INSERT INTO Book(name, attributes_category, attributes_yearOfPublishing, author_id) VALUES($1, $2, $3, $4);", sql);
@@ -121,7 +121,7 @@ public class JpaInsertTest {
 
         var builder = new StringBuilder();
         List<Parameter<?>> params = new ArrayList<>();
-        JpaSqlUpdateBuilder.build(builder, query, params, book);
+        JpaSqlInsertBuilder.build(builder, query, params);
         var sql = builder.toString();
 
         assertEquals("", sql);
@@ -145,7 +145,7 @@ public class JpaInsertTest {
 
         var builder = new StringBuilder();
         List<Parameter<?>> params = new ArrayList<>();
-        JpaSqlUpdateBuilder.build(builder, query, params, order);
+        JpaSqlInsertBuilder.build(builder, query, params);
         var sql = builder.toString();
 
         assertEquals("INSERT INTO Order(book) VALUES($1)", sql);

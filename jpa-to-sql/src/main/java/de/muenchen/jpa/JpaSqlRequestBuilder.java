@@ -6,12 +6,13 @@ import jakarta.persistence.Parameter;
 import jakarta.persistence.criteria.*;
 import jakarta.persistence.metamodel.Attribute;
 import jakarta.persistence.metamodel.EntityType;
+import lombok.extern.slf4j.Slf4j;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Stack;
+import java.util.*;
 
+@Slf4j
 public class JpaSqlRequestBuilder {
+
     public static <X> void build(CriteriaQuery<X> query) {
         build(new StringBuilder(), query, new ArrayList<>());
     }
@@ -240,12 +241,49 @@ public class JpaSqlRequestBuilder {
     }
 
     public static void build(StringBuilder sb, AliasContext context, List<Parameter<?>> params, Expression<?> expression) {
-        if (expression instanceof Predicate p) {
-            build(sb, context, params, p);
-        } else if (expression instanceof Path<?> p) {
-            build(sb, context, params, p);
-        } else if (expression instanceof JpaSql exp) {
-            exp.toSql(sb, context, params);
+        switch (expression) {
+            case Parameter<?> p -> build(sb, context, params, p);
+            case CriteriaBuilder.In<?> p -> build(sb, context, params, p);
+            case Predicate p -> build(sb, context, params, p);
+            case Path<?> p -> build(sb, context, params, p);
+            case JpaSql exp -> exp.toSql(sb, context, params);
+            default -> log.debug("Ignored unknown expression type {}", expression.getClass());
         }
+    }
+
+    public static void build(StringBuilder sb, AliasContext context, List<Parameter<?>> params, CriteriaBuilder.In<?> in) {
+        build(sb, context, params, in.getExpression());
+        sb.append(" IN (");
+        build(sb, context, params, in.getCompoundSelectionItems().stream().map(Expression.class::cast).toList(), JpaSqlRequestBuilder::build);
+        sb.append(")");
+    }
+
+    public static <T> void build(StringBuilder sb, AliasContext context, List<Parameter<?>> params, List<T> list, SqlExpressionBuilder<T> builder) {
+        if (list.isEmpty()) {
+            return;
+        }
+        var first = list.getFirst();
+        builder.build(sb, context, params, first);
+        list.stream().skip(1)
+                .forEach(e -> {
+                    sb.append(',');
+                    builder.build(sb, context, params, e);
+                });
+
+    }
+
+    public static <T> void build(StringBuilder sb, AliasContext context, List<Parameter<?>> params, Parameter<?> param) {
+        var idx = params.indexOf(param) + 1;
+        if (idx == 0) {
+            params.add(param);
+            idx = params.size();
+        }
+        sb.append('$');
+        sb.append(idx);
+    }
+
+    @FunctionalInterface
+    public interface SqlExpressionBuilder<T> {
+        void build(StringBuilder sb, AliasContext context, List<Parameter<?>> params, T arg);
     }
 }

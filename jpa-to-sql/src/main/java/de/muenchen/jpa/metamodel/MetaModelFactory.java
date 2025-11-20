@@ -219,7 +219,10 @@ public class MetaModelFactory {
             default -> throw new IllegalStateException(metadata.getField().getGenericType().toString());
         };
 
-        var t = new TypeImpl<>(tp, (Class<?>) cls);
+        var t = switch (tp) {
+            case EMBEDDABLE -> new EmbeddableTypeImpl<>((Class<?>) cls);
+            default -> new TypeImpl<>(tp, (Class<?>) cls);
+        };
         return new ListAttributeImpl<>(metadata.getAttributeType(), metadata.getField(), metadata.getSqlIdentifier(), declaring, t);
     }
 
@@ -235,7 +238,10 @@ public class MetaModelFactory {
 
             case EMBEDDED -> Type.PersistenceType.EMBEDDABLE;
         };
-        var t = new TypeImpl<>(tp, metaData.getField().getType());
+        var t = switch (tp) {
+            case EMBEDDABLE -> new EmbeddableTypeImpl<>(metaData.getField().getType());
+            default -> new TypeImpl<>(tp, metaData.getField().getType());
+        };
         return new SingularAttributeImpl<>(metaData.getAttributeType(), metaData.getField(), metaData.getSqlIdentifier(), declaring, t, metaData.isId(), metaData.isVersion(), metaData.isOptional());
     }
 

@@ -1,6 +1,5 @@
 package de.muenchen.jpa.metamodel;
 
-import de.muenchen.jpa.metamodel.PluralAttributeImpl;
 import jakarta.persistence.metamodel.ListAttribute;
 import jakarta.persistence.metamodel.ManagedType;
 import jakarta.persistence.metamodel.Type;

@@ -6,6 +6,9 @@ import de.muenchen.jpa.metamodel.DynamicMetamodel;
 import de.muenchen.jpa.metamodel.MetaModelFactory;
 import jakarta.persistence.Parameter;
 import jakarta.persistence.criteria.CriteriaBuilder;
+import org.hamcrest.CoreMatchers;
+import org.hamcrest.MatcherAssert;
+import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
@@ -14,6 +17,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class JpaUpdateTest {
@@ -57,13 +62,15 @@ public class JpaUpdateTest {
 
         var factory = createContext();
         var query = factory.createCriteriaUpdate(Author.class);
+        query.from(Author.class);
 
         var builder = new StringBuilder();
         List<Parameter<?>> params = new ArrayList<>();
-        JpaSqlUpdateBuilder.build(builder, query, params, author);
+        JpaSqlUpdateBuilder.populateUpdateQuery(factory, query, author);
+        JpaSqlUpdateBuilder.build(builder, query, params);
         var sql = builder.toString();
 
-        assertEquals("UPDATE Author SET name = $1 WHERE id = $2", sql);
+        assertEquals("UPDATE \"Author\" \"a\" SET \"a\".\"name\" = $1 WHERE \"a\".\"id\" = $2;", sql);
     }
 
     /**
@@ -76,14 +83,15 @@ public class JpaUpdateTest {
 
         var factory = createContext();
         var query = factory.createCriteriaUpdate(Book.class);
+        query.from(Book.class);
 
         var builder = new StringBuilder();
         List<Parameter<?>> params = new ArrayList<>();
-        JpaSqlUpdateBuilder.build(builder, query, params, book);
+        JpaSqlUpdateBuilder.populateUpdateQuery(factory, query, book);
+        JpaSqlUpdateBuilder.build(builder, query, params);
         var sql = builder.toString();
 
-        assertEquals("UPDATE Book SET name = $1, attributes_category = $2, attributes_yearOfPublishing = $3 WHERE id = $4;", sql);
-
+        assertThat(List.of(sql.split("[, ]")), containsInAnyOrder("UPDATE \"Book\" \"a\" SET \"a\".\"name\" = $1,\"a\".\"attributes_category\" = $2,\"a\".\"attributes_yearOfPublishing\" = $3 WHERE \"a\".\"id\" = $4;".split("[, ]")));
     }
 
     /**
@@ -95,13 +103,15 @@ public class JpaUpdateTest {
 
         var factory = createContext();
         var query = factory.createCriteriaUpdate(Book.class);
+        query.from(Book.class);
 
         var builder = new StringBuilder();
         List<Parameter<?>> params = new ArrayList<>();
-        JpaSqlUpdateBuilder.build(builder, query, params, book);
+        JpaSqlUpdateBuilder.populateUpdateQuery(factory, query, book);
+        JpaSqlUpdateBuilder.build(builder, query, params);
         var sql = builder.toString();
 
-        assertEquals("INSERT INTO Book(name, attributes_category, attributes_yearOfPublishing, author_id) VALUES($1, $2, $3, $4);", sql);
+        assertThat(List.of(sql.split("[, ]")), containsInAnyOrder("UPDATE \"Book\" \"a\" SET \"a\".\"name\" = $1,\"a\".\"attributes_category\" = $2,\"a\".\"attributes_yearOfPublishing\" = $3,\"a\".\"author_id\" = $4 WHERE \"a\".\"id\" = $5;".split("[, ]")));
     }
 
     /*
@@ -120,7 +130,8 @@ public class JpaUpdateTest {
 
         var builder = new StringBuilder();
         List<Parameter<?>> params = new ArrayList<>();
-        JpaSqlUpdateBuilder.build(builder, query, params, book);
+        JpaSqlUpdateBuilder.populateUpdateQuery(factory, query, book);
+        JpaSqlUpdateBuilder.build(builder, query, params);
         var sql = builder.toString();
 
         assertEquals("", sql);
@@ -140,13 +151,15 @@ public class JpaUpdateTest {
         );
         var factory = createContext();
         var query = factory.createCriteriaUpdate(Order.class);
+        query.from(Order.class);
 
         var builder = new StringBuilder();
         List<Parameter<?>> params = new ArrayList<>();
-        JpaSqlUpdateBuilder.build(builder, query, params, order);
+        JpaSqlUpdateBuilder.populateUpdateQuery(factory, query, order);
+        JpaSqlUpdateBuilder.build(builder, query, params);
         var sql = builder.toString();
 
-        assertEquals("UPDATE Order SET book = $1, version = NOW() WHERE id = $3;", sql);
+        assertEquals("UPDATE \"Order\" \"a\" SET \"a\".\"book\" = $1,\"a\".\"version\" = $2 WHERE \"a\".\"id\" = $3 AND \"a\".\"version\" = $4;", sql);
     }
 
     /**
@@ -159,16 +172,18 @@ public class JpaUpdateTest {
         var delivery = new Delivery(
                 null,
                 buildBook(),
-                Byte.MAX_VALUE
+                Short.MAX_VALUE
         );
         var factory = createContext();
         var query = factory.createCriteriaUpdate(Delivery.class);
+        query.from(Delivery.class);
 
         var builder = new StringBuilder();
         List<Parameter<?>> params = new ArrayList<>();
-        JpaSqlUpdateBuilder.build(builder, query, params, delivery);
+        JpaSqlUpdateBuilder.populateUpdateQuery(factory, query, delivery);
+        JpaSqlUpdateBuilder.build(builder, query, params);
         var sql = builder.toString();
 
-        assertEquals("UPDATE Order SET book = $1, version = 0 WHERE id = $3;", sql);
+        assertThat(List.of(sql.split("[, ]")), containsInAnyOrder("UPDATE \"Delivery\" \"a\" SET \"a\".\"book\" = $1,\"a\".\"version\" = $2 WHERE \"a\".\"version\" = $3 AND \"a\".\"id\" = $4;".split("[, ]")));
     }
 }

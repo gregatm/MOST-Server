@@ -1,13 +1,10 @@
 package de.muenchen.jpa.criteria;
 
-import de.muenchen.jpa.metamodel.SqlIdentifier;
-import jakarta.persistence.Parameter;
 import jakarta.persistence.criteria.Expression;
 import jakarta.persistence.criteria.Path;
 import jakarta.persistence.metamodel.*;
 
 import java.util.Collection;
-import java.util.List;
 import java.util.Map;
 
 public class JpaPath<X> extends JpaExpression<X> implements Path<X> {

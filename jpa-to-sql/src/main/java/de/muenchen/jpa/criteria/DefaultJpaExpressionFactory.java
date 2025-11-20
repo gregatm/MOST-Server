@@ -165,7 +165,7 @@ public class DefaultJpaExpressionFactory extends AbstractJpaExpressionFactory {
 
     @Override
     public Predicate and(Expression<Boolean> e1, Expression<Boolean> e2) {
-        return or(Stream.of(e1, e2)
+        return and(Stream.of(e1, e2)
                 .map(e -> new JpaPredicate(this, e))
                 .toArray(Predicate[]::new)
         );
@@ -840,6 +840,16 @@ public class DefaultJpaExpressionFactory extends AbstractJpaExpressionFactory {
         public CriteriaBuilder.In<T> value(Expression<? extends T> e) {
             list.add(e);
             return this;
+        }
+
+        @Override
+        public List<Selection<?>> getCompoundSelectionItems() {
+            return Collections.unmodifiableList(list);
+        }
+
+        @Override
+        public boolean isCompoundSelection() {
+            return true;
         }
     }
 

@@ -1,9 +1,6 @@
 package de.muenchen.jpa.dao;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.Version;
+import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -23,5 +20,5 @@ public class Delivery {
     private Book book;
 
     @Version
-    private Byte version;
+    private Short version;
 }
