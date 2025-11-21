@@ -1,9 +1,6 @@
 package de.muenchen.jpa;
 
-import de.muenchen.jpa.criteria.AbstractJpaExpressionFactory;
-import de.muenchen.jpa.criteria.AliasContext;
-import de.muenchen.jpa.criteria.JpaCriteriaUpdate;
-import de.muenchen.jpa.criteria.JpaParameterExpression;
+import de.muenchen.jpa.criteria.*;
 import de.muenchen.jpa.metamodel.SingularAttributeImpl;
 import jakarta.persistence.Column;
 import jakarta.persistence.OneToOne;
@@ -40,7 +37,7 @@ public class JpaSqlUpdateBuilder {
         JpaSqlRequestBuilder.build(sb, context, params, root);
 
         sb.append(" SET ");
-
+        root.alias(null);
         var q = (JpaCriteriaUpdate<X>) query;
         JpaSqlRequestBuilder.build(sb, context, params, q.getSets(), (sb1, context1, params1, e) -> {
             JpaSqlRequestBuilder.build(sb1, context1, params1, e.getKey());
@@ -54,11 +51,17 @@ public class JpaSqlUpdateBuilder {
             JpaSqlRequestBuilder.build(sb, context, params, where);
         }
 
+        var returning = q.getSelection();
+        if (returning != null) {
+            sb.append(" RETURNING ");
+            JpaSqlRequestBuilder.build(sb, context, params, returning);
+        }
+
         sb.append(';');
     }
 
     @SneakyThrows
-    public static <X> void build(StringBuilder sb, CriteriaUpdate<X> query, List<AbstractMap.SimpleEntry<Parameter<?>, ?>> params, X arg, Metamodel metamodel, AbstractJpaExpressionFactory factory) {
+    public static <X> Map<Parameter<?>, Object> build(StringBuilder sb, CriteriaUpdate<X> query, List<Parameter<?>> params, X arg, Metamodel metamodel, AbstractJpaExpressionFactory factory) {
         var model = metamodel.entity(arg.getClass());
         var idAttr = model.getId(model.getIdType().getJavaType());
         Object id;
@@ -70,48 +73,20 @@ public class JpaSqlUpdateBuilder {
             throw new IllegalStateException();
         }
 
-        List<AbstractMap.SimpleEntry<Predicate, Object>> sets;
-        boolean modified = true;
-        while (modified) {
-            modified = false;
-            sets = model.getAttributes()
-                    .stream()
-                    .filter(t -> {
-                        if (t instanceof SingularAttribute<?, ?> s) {
-                            return !s.isId() && !s.isVersion();
-                        }
-                        return true;
-                    })
-                    .map(attr -> {
-                        Object value = null;
-                        try {
-                            value = getValue(attr, arg);
-                        } catch (InvocationTargetException | IllegalAccessException e) {
-                            throw new RuntimeException(e);
-                        }
-                        return new AbstractMap.SimpleEntry<>(attr, value);
-                    })
-                    .map(attr -> {
-                        var exp = factory.equal(
-                                query.getRoot().get(attr.getKey().getName()),
-                                factory.parameter(attr.getValue().getClass()
-                                ));
-                        return new AbstractMap.SimpleEntry<>(exp, attr.getValue());
-                    })
-                    .toList();
-        }
-
-
-
+        Map<Parameter<?>, Object> binds = null;
         if (id == null) {
             // Insert
         } else {
             // Update
+            binds = JpaSqlUpdateBuilder.populateUpdateQuery(new DefaultJpaExpressionFactory(metamodel), query, arg);
+            JpaSqlUpdateBuilder.build(sb, query, params);
         }
+        return binds;
     }
 
     @SneakyThrows
-    public static <T> void populateUpdateQuery(CriteriaBuilder factory, CriteriaUpdate<T> query, T arg) {
+    public static <T> Map<Parameter<?>, Object> populateUpdateQuery(CriteriaBuilder factory, CriteriaUpdate<T> query, T arg) {
+        var params = new HashMap<Parameter<?>, Object>();
         resolveAttributes(factory, query.getRoot())
                 .forEach(p -> {
                     try {
@@ -119,23 +94,58 @@ public class JpaSqlUpdateBuilder {
                         if (val == null) {
                             return;
                         }
+                        if (p.getModel() instanceof Attribute<?,?> a){
+                            if (List.of(
+                                    Attribute.PersistentAttributeType.MANY_TO_ONE,
+                                    Attribute.PersistentAttributeType.ONE_TO_ONE
+                            ).contains(a.getPersistentAttributeType())) {
+                                var id = a.getDeclaringType()
+                                        .getAttributes()
+                                        .stream()
+                                        .filter(JpaSqlUpdateBuilder::isIdAttribute)
+                                        .map(attr -> {
+                                            try {
+                                                return getValue(p.get(attr.getName()), arg);
+                                            } catch (InvocationTargetException | IllegalAccessException e) {
+                                                throw new RuntimeException(e);
+                                            }
+                                        })
+                                        .findFirst()
+                                        .orElse(null);
+                                val = id;
+                            }
+                        }
+                        if (val == null) {
+                            return;
+                        }
                         var pe = new JpaParameterExpression<>(val.getClass(), null);
                         forcePopulateQuery(query, p, pe);
+                        params.put(pe, val);
                     } catch (InvocationTargetException | IllegalAccessException e) {
                         throw new RuntimeException(e);
                     }
                 });
 
-        populateIncrementVersionField(factory, query, arg);
-        populateUpdateWhereStatement(factory, query, arg);
+        var pv = populateIncrementVersionField(factory, query, arg);
+        params.putAll(pv);
+        pv = populateUpdateWhereStatement(factory, query, arg);
+        params.putAll(pv);
+        return params;
     }
 
-    public static <T> void populateIncrementVersionField(CriteriaBuilder factory, CriteriaUpdate<T> query, T arg) {
+    public static <T> Map<Parameter<?>, Object> populateIncrementVersionField(CriteriaBuilder factory, CriteriaUpdate<T> query, T arg) {
+        var params = new HashMap<Parameter<?>, Object>();
         query.getRoot().getModel().getAttributes()
                 .stream()
                 .filter(JpaSqlUpdateBuilder::isVersionAttribute)
                 .findFirst()
-                .ifPresent(a -> forcePopulateQuery(query, query.getRoot().get(a.getName()), factory.parameter(nextVersion(a, arg).getClass())));
+                .ifPresent(a ->{
+                    var val = nextVersion(a, arg);
+                    var p = factory.parameter(val.getClass());
+                    forcePopulateQuery(query, query.getRoot().get(a.getName()), p);
+                    params.put(p, val);
+                } );
+        return params;
     }
 
     public static void forcePopulateQuery(CriteriaUpdate<?> query, Path<?> path, Expression<?> exp) {
@@ -155,13 +165,13 @@ public class JpaSqlUpdateBuilder {
                 Number newVersion;
                 if (Short.class.isAssignableFrom(type)) {
                     var v = (Short) getValue(attr, arg);
-                    newVersion = (short) (v + 1);
+                    newVersion = (short) (v == null ? 1 : (v + 1));
                 } else if (Integer.class.isAssignableFrom(type)) {
                     var v = (Integer) getValue(attr, arg);
-                    newVersion = v + 1;
+                    newVersion = v == null ? 1 : v + 1;
                 } else if (Long.class.isAssignableFrom(type)) {
                     var v = (Long) getValue(attr, arg);
-                    newVersion = Long.valueOf(v + 1);
+                    newVersion = Long.valueOf(v == null ? 1 : v + 1);
                 } else {
                     throw new IllegalArgumentException("Not supported number type " + type);
                 }
@@ -180,14 +190,24 @@ public class JpaSqlUpdateBuilder {
         throw new IllegalArgumentException("Unsupported version type");
     }
 
-    public static <T> void populateUpdateWhereStatement(CriteriaBuilder factory, CriteriaUpdate<T> query, T arg) {
+    public static <T> Map<Parameter<?>, Object> populateUpdateWhereStatement(CriteriaBuilder factory, CriteriaUpdate<T> query, T arg) {
+        var params = new HashMap<Parameter<?>, Object>();
         query.getRoot().getModel().getAttributes()
                 .stream()
                 .filter(JpaSqlUpdateBuilder::isIdOrVersionAttribute)
                 .map(a -> query.getRoot().get(a.getName()))
-                .map(a -> factory.equal(a, factory.parameter(a.getJavaType())))
+                .map(a -> {
+                    var p = factory.parameter(a.getJavaType());
+                    try {
+                        params.put(p, getValue(a, arg));
+                    } catch (InvocationTargetException | IllegalAccessException e) {
+                        throw new RuntimeException(e);
+                    }
+                    return factory.equal(a, p);
+                })
                 .reduce(factory::and)
                 .ifPresent(query::where);
+        return params;
     }
 
     /**

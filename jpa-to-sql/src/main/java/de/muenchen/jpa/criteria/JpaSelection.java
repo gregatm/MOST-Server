@@ -43,7 +43,9 @@ public abstract class JpaSelection<X> implements Selection<X>, JpaSql {
     }
 
     void assertValidName(String name) {
-        if (name == null || name.trim().isEmpty())
+        if (name == null) {
+            return;
+        } else if (name.trim().isEmpty())
             throw new IllegalArgumentException("empty name is invalid");
         if (ReservedWords.isKeyword(name))
             throw new IllegalArgumentException("reserved word " + name + " is not valid");

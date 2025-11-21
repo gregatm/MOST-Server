@@ -13,6 +13,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class JpaInsertTest {
@@ -23,6 +25,7 @@ public class JpaInsertTest {
         metamodel.addType(mmfactory.processClass(Book.class));
         metamodel.addType(mmfactory.processClass(BookAttributes.class));
         metamodel.addType(mmfactory.processClass(Order.class));
+        metamodel.addType(mmfactory.processClass(Delivery.class));
         return new DefaultJpaExpressionFactory(metamodel);
     }
 
@@ -56,13 +59,15 @@ public class JpaInsertTest {
 
         var factory = createContext();
         var query = factory.createCriteriaUpdate(Author.class);
+        query.from(Author.class);
 
         var builder = new StringBuilder();
         List<Parameter<?>> params = new ArrayList<>();
+        var p = JpaSqlUpdateBuilder.populateUpdateQuery(factory, query, author);
         JpaSqlInsertBuilder.build(builder, query, params);
         var sql = builder.toString();
 
-        assertEquals("INSERT INTO Author(name) VALUES($1)", sql);
+        assertThat(List.of(sql.split("[, ()]")), containsInAnyOrder("INSERT INTO \"Author\"(\"name\") VALUES($1);".split("[, ()]")));
     }
 
     /**
@@ -76,13 +81,15 @@ public class JpaInsertTest {
 
         var factory = createContext();
         var query = factory.createCriteriaUpdate(Book.class);
+        query.from(Book.class);
 
         var builder = new StringBuilder();
         List<Parameter<?>> params = new ArrayList<>();
+        var p = JpaSqlUpdateBuilder.populateUpdateQuery(factory, query, book);
         JpaSqlInsertBuilder.build(builder, query, params);
         var sql = builder.toString();
 
-        assertEquals("INSERT INTO Book(name, attributes_category, attributes_yearOfPublishing) VALUES($1, $2, $3);", sql);
+        assertThat(List.of(sql.split("[, ()]")), containsInAnyOrder("INSERT INTO \"Book\"(\"name\",\"attributes_category\",\"attributes_yearOfPublishing\") VALUES($1,$2,$3);".split("[, ()]")));
     }
 
     /**
@@ -95,13 +102,15 @@ public class JpaInsertTest {
 
         var factory = createContext();
         var query = factory.createCriteriaUpdate(Book.class);
+        query.from(Book.class);
 
         var builder = new StringBuilder();
         List<Parameter<?>> params = new ArrayList<>();
+        var p = JpaSqlUpdateBuilder.populateUpdateQuery(factory, query, book);
         JpaSqlInsertBuilder.build(builder, query, params);
         var sql = builder.toString();
 
-        assertEquals("INSERT INTO Book(name, attributes_category, attributes_yearOfPublishing, author_id) VALUES($1, $2, $3, $4);", sql);
+        assertThat(List.of(sql.split("[, ()]")), containsInAnyOrder("INSERT INTO \"Book\"(\"name\",\"attributes_category\",\"attributes_yearOfPublishing\",\"author_id\") VALUES($1,$2,$3,$4);".split("[, ()]")));
     }
 
     /*
@@ -118,9 +127,11 @@ public class JpaInsertTest {
 
         var factory = createContext();
         var query = factory.createCriteriaUpdate(Book.class);
+        query.from(Book.class);
 
         var builder = new StringBuilder();
         List<Parameter<?>> params = new ArrayList<>();
+        var p = JpaSqlUpdateBuilder.populateUpdateQuery(factory, query, book);
         JpaSqlInsertBuilder.build(builder, query, params);
         var sql = builder.toString();
 
@@ -142,12 +153,39 @@ public class JpaInsertTest {
         );
         var factory = createContext();
         var query = factory.createCriteriaUpdate(Order.class);
+        query.from(Order.class);
 
         var builder = new StringBuilder();
         List<Parameter<?>> params = new ArrayList<>();
+        var p = JpaSqlUpdateBuilder.populateUpdateQuery(factory, query, order);
         JpaSqlInsertBuilder.build(builder, query, params);
         var sql = builder.toString();
 
-        assertEquals("INSERT INTO Order(book) VALUES($1)", sql);
+        assertThat(List.of(sql.split("[, ()]")), containsInAnyOrder("INSERT INTO \"Order\"(\"book\",\"version\") VALUES($1,$2);".split("[, ()]")));
+    }
+
+    /**
+     * Insert an entity with a version field. The version
+     * field has to be set. Version field is a short.
+     */
+    @Test
+    public void insertWithVersionInteger() {
+        var delivery = new Delivery(
+                null,
+                buildBook(),
+                null
+        );
+        var factory = createContext();
+        var query = factory.createCriteriaUpdate(Delivery.class);
+        query.from(Delivery.class);
+
+        var builder = new StringBuilder();
+        List<Parameter<?>> params = new ArrayList<>();
+        var p = JpaSqlUpdateBuilder.populateUpdateQuery(factory, query, delivery);
+        JpaSqlInsertBuilder.build(builder, query, params);
+        var sql = builder.toString();
+
+
+        assertThat(List.of(sql.split("[, ()]")), containsInAnyOrder("INSERT INTO \"Delivery\"(\"book\",\"version\") VALUES($1,$2);".split("[, ()]")));
     }
 }

@@ -11,7 +11,11 @@ import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -66,11 +70,12 @@ public class JpaUpdateTest {
 
         var builder = new StringBuilder();
         List<Parameter<?>> params = new ArrayList<>();
-        JpaSqlUpdateBuilder.populateUpdateQuery(factory, query, author);
+        var p = JpaSqlUpdateBuilder.populateUpdateQuery(factory, query, author);
         JpaSqlUpdateBuilder.build(builder, query, params);
         var sql = builder.toString();
 
-        assertEquals("UPDATE \"Author\" \"a\" SET \"a\".\"name\" = $1 WHERE \"a\".\"id\" = $2;", sql);
+        assertEquals("UPDATE \"Author\" \"a\" SET \"name\" = $1 WHERE \"id\" = $2;", sql);
+        assertThat(p.values(), containsInAnyOrder(author.getId(), author.getName()));
     }
 
     /**
@@ -87,11 +92,12 @@ public class JpaUpdateTest {
 
         var builder = new StringBuilder();
         List<Parameter<?>> params = new ArrayList<>();
-        JpaSqlUpdateBuilder.populateUpdateQuery(factory, query, book);
+        var p = JpaSqlUpdateBuilder.populateUpdateQuery(factory, query, book);
         JpaSqlUpdateBuilder.build(builder, query, params);
         var sql = builder.toString();
 
-        assertThat(List.of(sql.split("[, ]")), containsInAnyOrder("UPDATE \"Book\" \"a\" SET \"a\".\"name\" = $1,\"a\".\"attributes_category\" = $2,\"a\".\"attributes_yearOfPublishing\" = $3 WHERE \"a\".\"id\" = $4;".split("[, ]")));
+        assertThat(List.of(sql.split("[, ]")), containsInAnyOrder("UPDATE \"Book\" \"a\" SET \"name\" = $1,\"attributes_category\" = $2,\"attributes_yearOfPublishing\" = $3 WHERE \"id\" = $4;".split("[, ]")));
+        assertThat(p.values(), containsInAnyOrder(book.getId(), book.getName(), book.getAttributes().getCategory(), book.getAttributes().getYearOfPublishing()));
     }
 
     /**
@@ -107,11 +113,12 @@ public class JpaUpdateTest {
 
         var builder = new StringBuilder();
         List<Parameter<?>> params = new ArrayList<>();
-        JpaSqlUpdateBuilder.populateUpdateQuery(factory, query, book);
+        var p = JpaSqlUpdateBuilder.populateUpdateQuery(factory, query, book);
         JpaSqlUpdateBuilder.build(builder, query, params);
         var sql = builder.toString();
 
-        assertThat(List.of(sql.split("[, ]")), containsInAnyOrder("UPDATE \"Book\" \"a\" SET \"a\".\"name\" = $1,\"a\".\"attributes_category\" = $2,\"a\".\"attributes_yearOfPublishing\" = $3,\"a\".\"author_id\" = $4 WHERE \"a\".\"id\" = $5;".split("[, ]")));
+        assertThat(List.of(sql.split("[, ]")), containsInAnyOrder("UPDATE \"Book\" \"a\" SET \"name\" = $1,\"attributes_category\" = $2,\"attributes_yearOfPublishing\" = $3,\"author_id\" = $4 WHERE \"id\" = $5;".split("[, ]")));
+        assertThat(p.values(), containsInAnyOrder(book.getId(), book.getName(), book.getAuthor().getId(), book.getAttributes().getCategory(), book.getAttributes().getYearOfPublishing()));
     }
 
     /*
@@ -130,20 +137,27 @@ public class JpaUpdateTest {
 
         var builder = new StringBuilder();
         List<Parameter<?>> params = new ArrayList<>();
-        JpaSqlUpdateBuilder.populateUpdateQuery(factory, query, book);
+        var p = JpaSqlUpdateBuilder.populateUpdateQuery(factory, query, book);
         JpaSqlUpdateBuilder.build(builder, query, params);
         var sql = builder.toString();
 
         assertEquals("", sql);
+        assertThat(p.values(), containsInAnyOrder());
     }
+
+    private MockedStatic<Clock> clockMock;
 
     /**
      * Update an entity with a version field. The new version
-     * value has to be inserted. Version field is a timestamp
-     * so DBMS internal timestamp function is used.
+     * value has to be inserted. Version field is a timestamp.
+     * New timestamp needs to be generated
      */
     @Test
     public void updateWithVersion() {
+        Clock spyClock = Mockito.spy(Clock.systemDefaultZone());
+        clockMock = Mockito.mockStatic(Clock.class);
+        clockMock.when(Clock::systemDefaultZone).thenReturn(spyClock);
+        Mockito.when(spyClock.instant()).thenReturn(Instant.ofEpochSecond(164000000));
         var order = new Order(
                 null,
                 buildBook(),
@@ -155,17 +169,18 @@ public class JpaUpdateTest {
 
         var builder = new StringBuilder();
         List<Parameter<?>> params = new ArrayList<>();
-        JpaSqlUpdateBuilder.populateUpdateQuery(factory, query, order);
+        var p = JpaSqlUpdateBuilder.populateUpdateQuery(factory, query, order);
         JpaSqlUpdateBuilder.build(builder, query, params);
         var sql = builder.toString();
 
-        assertEquals("UPDATE \"Order\" \"a\" SET \"a\".\"book\" = $1,\"a\".\"version\" = $2 WHERE \"a\".\"id\" = $3 AND \"a\".\"version\" = $4;", sql);
+        assertThat(List.of(sql.split("[, ]")), containsInAnyOrder("UPDATE \"Order\" \"a\" SET \"book\" = $1,\"version\" = $2 WHERE \"id\" = $3 AND \"version\" = $4;".split("[, ]")));
+        assertThat(p.values(), containsInAnyOrder(order.getId(), order.getBook().getId(), order.getVersion(), LocalDateTime.now()));
     }
 
     /**
      * Update an entity with a version field. The new version
-     * value has to be inserted. Version field is a timestamp
-     * so DBMS internal timestamp function is used.
+     * value has to be inserted. Version field is a short.
+     * New version has to be incremented
      */
     @Test
     public void updateWithVersionInteger() {
@@ -180,10 +195,11 @@ public class JpaUpdateTest {
 
         var builder = new StringBuilder();
         List<Parameter<?>> params = new ArrayList<>();
-        JpaSqlUpdateBuilder.populateUpdateQuery(factory, query, delivery);
+        var p = JpaSqlUpdateBuilder.populateUpdateQuery(factory, query, delivery);
         JpaSqlUpdateBuilder.build(builder, query, params);
         var sql = builder.toString();
 
-        assertThat(List.of(sql.split("[, ]")), containsInAnyOrder("UPDATE \"Delivery\" \"a\" SET \"a\".\"book\" = $1,\"a\".\"version\" = $2 WHERE \"a\".\"version\" = $3 AND \"a\".\"id\" = $4;".split("[, ]")));
+        assertThat(List.of(sql.split("[, ]")), containsInAnyOrder("UPDATE \"Delivery\" \"a\" SET \"book\" = $1,\"version\" = $2 WHERE \"version\" = $3 AND \"id\" = $4;".split("[, ]")));
+        assertThat(p.values(), containsInAnyOrder(delivery.getId(), delivery.getBook().getId(), delivery.getVersion(), (short)-32768));
     }
 }
