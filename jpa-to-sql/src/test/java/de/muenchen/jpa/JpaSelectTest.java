@@ -1,25 +1,17 @@
 package de.muenchen.jpa;
 
-import de.muenchen.jpa.criteria.AbstractJpaExpressionFactory;
 import de.muenchen.jpa.criteria.AggregateSelections;
-import de.muenchen.jpa.criteria.DefaultJpaExpressionFactory;
 import de.muenchen.jpa.dao.Author;
 import de.muenchen.jpa.dao.Book;
-import de.muenchen.jpa.dao.BookAttributes;
-import de.muenchen.jpa.metamodel.DynamicMetamodel;
-import de.muenchen.jpa.metamodel.MetaModelFactory;
-import jakarta.persistence.Parameter;
-import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.CriteriaQuery;
 import jakarta.persistence.criteria.Nulls;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
 
-import static org.hamcrest.MatcherAssert.assertThat;
+import static de.muenchen.jpa.CommonTestUtils.createContext;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class JpaSelectTest {
@@ -27,15 +19,6 @@ public class JpaSelectTest {
     @Test
     public void buildJpaContext() {
         createContext();
-    }
-
-    private CriteriaBuilder createContext() {
-        var metamodel = new DynamicMetamodel();
-        var mmfactory = new MetaModelFactory();
-        metamodel.addType(mmfactory.processClass(Author.class));
-        metamodel.addType(mmfactory.processClass(Book.class));
-        metamodel.addType(mmfactory.processClass(BookAttributes.class));
-        return new DefaultJpaExpressionFactory(metamodel);
     }
 
     private String buildSql(CriteriaQuery<?> q) {

@@ -1,14 +1,7 @@
 package de.muenchen.jpa;
 
-import de.muenchen.jpa.criteria.DefaultJpaExpressionFactory;
 import de.muenchen.jpa.dao.*;
-import de.muenchen.jpa.metamodel.DynamicMetamodel;
-import de.muenchen.jpa.metamodel.MetaModelFactory;
 import jakarta.persistence.Parameter;
-import jakarta.persistence.criteria.CriteriaBuilder;
-import org.hamcrest.CoreMatchers;
-import org.hamcrest.MatcherAssert;
-import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
@@ -21,21 +14,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
+import static de.muenchen.jpa.CommonTestUtils.createContext;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class JpaUpdateTest {
-    private CriteriaBuilder createContext() {
-        var metamodel = new DynamicMetamodel();
-        var mmfactory = new MetaModelFactory();
-        metamodel.addType(mmfactory.processClass(Author.class));
-        metamodel.addType(mmfactory.processClass(Book.class));
-        metamodel.addType(mmfactory.processClass(BookAttributes.class));
-        metamodel.addType(mmfactory.processClass(Order.class));
-        metamodel.addType(mmfactory.processClass(Delivery.class));
-        return new DefaultJpaExpressionFactory(metamodel);
-    }
 
     public Author buildAuthor() {
         return new Author(

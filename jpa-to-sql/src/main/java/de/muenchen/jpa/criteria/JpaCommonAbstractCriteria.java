@@ -18,13 +18,13 @@ public abstract class JpaCommonAbstractCriteria<T> implements CommonAbstractCrit
 
 
     @Override
-    public <U> Subquery<U> subquery(Class<U> aClass) {
-        return null;
+    public <U> Subquery<U> subquery(Class<U> cls) {
+        return factory.subquery(this, cls);
     }
 
     @Override
     public <U> Subquery<U> subquery(EntityType<U> entityType) {
-        return null;
+        return subquery(entityType.getJavaType());
     }
 
     @Override

@@ -81,16 +81,6 @@ public class JpaCriteriaQuery<T> extends JpaAbstractQuery<T> implements Criteria
     }
 
     @Override
-    public <U> Subquery<U> subquery(Class<U> p0) {
-        throw new IllegalStateException("Not yet implemented");
-    }
-
-    @Override
-    public <U> Subquery<U> subquery(EntityType<U> p0) {
-        throw new IllegalStateException("Not yet implemented");
-    }
-
-    @Override
     public CriteriaQuery<T> where(Expression<Boolean> exp) {
         return (CriteriaQuery<T>) super.where(exp);
     }

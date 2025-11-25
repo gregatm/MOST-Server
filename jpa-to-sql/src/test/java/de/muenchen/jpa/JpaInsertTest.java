@@ -13,21 +13,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
+import static de.muenchen.jpa.CommonTestUtils.createContext;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class JpaInsertTest {
-    private CriteriaBuilder createContext() {
-        var metamodel = new DynamicMetamodel();
-        var mmfactory = new MetaModelFactory();
-        metamodel.addType(mmfactory.processClass(Author.class));
-        metamodel.addType(mmfactory.processClass(Book.class));
-        metamodel.addType(mmfactory.processClass(BookAttributes.class));
-        metamodel.addType(mmfactory.processClass(Order.class));
-        metamodel.addType(mmfactory.processClass(Delivery.class));
-        return new DefaultJpaExpressionFactory(metamodel);
-    }
 
     public Author buildAuthor() {
         return new Author(

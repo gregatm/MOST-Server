@@ -17,9 +17,12 @@ public class JpaSqlRequestBuilder {
         build(new StringBuilder(), query, new ArrayList<>());
     }
 
-    public static <X> void build(StringBuilder sb, CriteriaQuery<X> query, List<Parameter<?>> params) {
-        AliasContext context = new AliasContext();
+    public static <X> void build(StringBuilder sb, AbstractQuery<X> query, List<Parameter<?>> params) {
+        build(sb, query, new AliasContext(), params);
+        sb.append(';');
+    }
 
+    public static <X> void build(StringBuilder sb, AbstractQuery<X> query, AliasContext context, List<Parameter<?>> params) {
         sb.append(" FROM ");
         var roots = query.getRoots();
         if (roots == null) {
@@ -53,28 +56,8 @@ public class JpaSqlRequestBuilder {
             build(sb, context, params, having);
         }
 
-        var orders = query.getOrderList();
-        if (orders != null && !orders.isEmpty()) {
-            sb.append(" ORDER BY ");
-            var order = orders.getFirst();
-            build(sb, context, params, order);
-            orders.stream().skip(1).forEach(o -> {
-                sb.append(',');
-                build(sb, context, params, o);
-            });
-        }
-
-        if (query instanceof JpaCriteriaQuery<?> q) {
-            var limit = q.getLimit();
-            if (limit != null) {
-                sb.append(" LIMIT ");
-                sb.append(limit);
-            }
-            var offset = q.getOffset();
-            if (offset != null) {
-                sb.append(" OFFSET ");
-                sb.append(offset);
-            }
+        if (query instanceof CriteriaQuery<X> q) {
+            build(sb, q, context, params);
         }
 
         // Build from clause at the end, so aliases in the selects are already properly set
@@ -98,8 +81,32 @@ public class JpaSqlRequestBuilder {
         }
 
         sb.insert(0, selectBuilder);
+    }
 
-        sb.append(';');
+    public static <X> void build(StringBuilder sb, CriteriaQuery<X> query, AliasContext context, List<Parameter<?>> params) {
+        var orders = query.getOrderList();
+        if (orders != null && !orders.isEmpty()) {
+            sb.append(" ORDER BY ");
+            var order = orders.getFirst();
+            build(sb, context, params, order);
+            orders.stream().skip(1).forEach(o -> {
+                sb.append(',');
+                build(sb, context, params, o);
+            });
+        }
+
+        if (query instanceof JpaCriteriaQuery<?> q) {
+            var limit = q.getLimit();
+            if (limit != null) {
+                sb.append(" LIMIT ");
+                sb.append(limit);
+            }
+            var offset = q.getOffset();
+            if (offset != null) {
+                sb.append(" OFFSET ");
+                sb.append(offset);
+            }
+        }
     }
 
     public static void build(StringBuilder sb, AliasContext context, List<Parameter<?>> params, Path<?> path) {
@@ -246,9 +253,26 @@ public class JpaSqlRequestBuilder {
             case CriteriaBuilder.In<?> p -> build(sb, context, params, p);
             case Predicate p -> build(sb, context, params, p);
             case Path<?> p -> build(sb, context, params, p);
+            case Subquery<?> q -> build(sb, context, params, q);
+            case DefaultJpaExpressionFactory.FunctionalExpression<?> f -> build(sb, context, params, f);
             case JpaSql exp -> exp.toSql(sb, context, params);
             default -> log.debug("Ignored unknown expression type {}", expression.getClass());
         }
+    }
+
+    public static void build(StringBuilder sb, AliasContext context, List<Parameter<?>> params, Subquery<?> subquery) {
+        var ssb = new StringBuilder();
+        build(ssb, subquery, context, params);
+        sb.append(ssb);
+    }
+
+    public static void build(StringBuilder sb, AliasContext context, List<Parameter<?>> params, DefaultJpaExpressionFactory.FunctionalExpression<?> function) {
+        sb.append(function.getFunction());
+        sb.append('(');
+        build(sb, context, params, function.getCompoundSelectionItems(), (sb1, context1, params1, exp) -> {
+            build(sb1, context1, params1, (Expression<?>) exp);
+                });
+        sb.append(')');
     }
 
     public static void build(StringBuilder sb, AliasContext context, List<Parameter<?>> params, CriteriaBuilder.In<?> in) {

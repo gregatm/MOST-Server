@@ -145,7 +145,7 @@ public class DefaultJpaExpressionFactory extends AbstractJpaExpressionFactory {
 
     @Override
     public Predicate exists(Subquery<?> subquery) {
-        return null;
+        return new JpaPredicate(this, new Exists<>(this, subquery));
     }
 
     @Override
@@ -645,6 +645,11 @@ public class DefaultJpaExpressionFactory extends AbstractJpaExpressionFactory {
     }
 
     @Override
+    public <X> Subquery<X> subquery(CommonAbstractCriteria query, Class<X> cls) {
+        return new JpaSubquery<>(query, cls, this);
+    }
+
+    @Override
     public <X, Y> Join<X, Y> join(From<?, X> parent, EntityType<X> root, EntityType<Y> et, JoinType joinType) {
         return new JpaJoin<>(parent, root, et, joinType, this);
     }
@@ -660,6 +665,7 @@ public class DefaultJpaExpressionFactory extends AbstractJpaExpressionFactory {
         }
     }
 
+    @Getter
     public abstract static class FunctionalExpression<X> extends JpaExpression<X> {
         protected final Expression<?>[] args;
         protected final String function;
@@ -668,6 +674,16 @@ public class DefaultJpaExpressionFactory extends AbstractJpaExpressionFactory {
             super(cls, factory);
             this.function = function;
             this.args = Arrays.copyOf(args, args.length);
+        }
+
+        @Override
+        public boolean isCompoundSelection() {
+            return true;
+        }
+
+        @Override
+        public List<Selection<?>> getCompoundSelectionItems() {
+            return List.of(args);
         }
     }
 
@@ -866,6 +882,12 @@ public class DefaultJpaExpressionFactory extends AbstractJpaExpressionFactory {
         public CastAs(Class<Y> cls, AbstractJpaExpressionFactory factory, Expression<?> exp) {
             super(cls, factory);
             this.actual = exp;
+        }
+    }
+
+    public static class Exists<T> extends FunctionalExpression<Boolean> {
+        public Exists(AbstractJpaExpressionFactory factory, Subquery<T> args) {
+            super(Boolean.class, "EXISTS", factory, args);
         }
     }
 }

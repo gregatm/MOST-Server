@@ -24,6 +24,8 @@ public abstract class AbstractJpaExpressionFactory implements JpaExpressionFacto
 
     public abstract <X> Root<X> from(Class<X> et);
 
+    public abstract <X> Subquery<X> subquery(CommonAbstractCriteria query, Class<X> cls);
+
     public abstract <X, Y> Join<X, Y> join(From<?, X> parent, EntityType<X> root, EntityType<Y> et, JoinType joinType);
     public abstract <X, Y> Join<X, Y> join(From<?, X> parent, Class<X> root, Class<Y> cls, JoinType joinType);
 
