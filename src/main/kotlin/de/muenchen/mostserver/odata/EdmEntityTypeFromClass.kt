@@ -80,9 +80,8 @@ fun mapType(field: Field) : FullQualifiedName {
 }
 
 fun mapToManyNavigationalProperty(field: Field): CsdlNavigationProperty {
-    val clazz = (field.declaredAnnotations.first{
-        it is EdmEntityAsType
-    } as EdmEntityAsType).value.java
+    val clazz = field.getDeclaredAnnotation(EdmEntityAsType::class.java)
+        .value.java
     return CsdlNavigationPropertyBuilder()
         .name(getEntitySetNameFromEntity(clazz))
         .type(mapType(field))
@@ -109,7 +108,7 @@ fun mapToOneNavigationalProperty(field: Field, annotation: Annotation): CsdlNavi
 
 fun getIdFieldName(clazz: Class<*>): List<String> {
     return clazz.declaredFields
-        .filter { it.getAnnotation(Id::class.java) != null }
+        .filter { it.getAnnotation(Id::class.java) != null || it.getAnnotation(jakarta.persistence.Id::class.java) != null }
         .map { f ->
             val a = f.getAnnotation(Column::class.java)
             a?.name ?: f.name

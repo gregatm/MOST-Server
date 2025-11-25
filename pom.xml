@@ -48,10 +48,11 @@
         </dependency>
 
         <dependency>
-            <groupId>com.ongres.scram</groupId>
-            <artifactId>scram-client</artifactId>
-            <version>3.2</version>
+            <groupId>de.muenchen.jpa</groupId>
+            <artifactId>jpa-to-sql</artifactId>
+            <version>0.0.1-SNAPSHOT</version>
         </dependency>
+
         <dependency>
             <groupId>org.springdoc</groupId>
             <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>

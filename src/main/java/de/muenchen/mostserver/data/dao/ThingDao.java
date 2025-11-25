@@ -3,10 +3,7 @@ package de.muenchen.mostserver.data.dao;
 import de.muenchen.mostserver.odata.EdmEntityAsType;
 import de.muenchen.mostserver.odata.EdmEntityEntityExclude;
 import de.muenchen.mostserver.odata.EdmEntityProvider;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.OneToMany;
-import jakarta.persistence.Id;
+import jakarta.persistence.*;
 import lombok.*;
 import org.springframework.data.relational.core.mapping.Table;
 
@@ -34,6 +31,9 @@ public class ThingDao {
     @OneToMany
     @EdmEntityAsType(value = DatastreamDao.class, isCollection = true)
     private List<DatastreamDao> datastreams;
+
+    @ManyToOne
+    private ProjectDao project;
 
     public ThingDao(UUID id) {
         this.id = id;
@@ -69,5 +69,13 @@ public class ThingDao {
 
     public void setDatastreams(List<DatastreamDao> datastreams) {
         this.datastreams = datastreams;
+    }
+
+    public ProjectDao getProject() {
+        return project;
+    }
+
+    public void setProject(ProjectDao project) {
+        this.project = project;
     }
 }

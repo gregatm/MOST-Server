@@ -1,18 +1,18 @@
 package de.muenchen.mostserver.odata
 
-import de.muenchen.mostserver.controller.dto.Thing
+import de.muenchen.jpa.criteria.AbstractJpaExpressionFactory
+import de.muenchen.jpa.criteria.DefaultJpaExpressionFactory
+import de.muenchen.jpa.metamodel.DynamicMetamodel
+import de.muenchen.jpa.metamodel.MetaModelFactory
 import de.muenchen.mostserver.data.QueryBuilder
 import de.muenchen.mostserver.data.dao.DatastreamDao
 import de.muenchen.mostserver.data.dao.ProjectDao
 import de.muenchen.mostserver.data.dao.SensorDao
 import de.muenchen.mostserver.data.dao.ThingDao
 import de.muenchen.mostserver.data.dao.UnitOfMeasurement
-import io.micrometer.core.instrument.simple.SimpleMeterRegistry
+import de.muenchen.mostserver.services.ODataService
 import io.micrometer.core.instrument.util.IOUtils
 import io.r2dbc.spi.Batch
-import jakarta.persistence.Persistence
-import jakarta.persistence.criteria.CriteriaQuery
-import jakarta.persistence.criteria.Selection
 import org.apache.olingo.commons.api.constants.Constantsv01
 import org.apache.olingo.commons.api.data.ContextURL
 import org.apache.olingo.commons.api.edm.FullQualifiedName
@@ -23,6 +23,7 @@ import org.apache.olingo.commons.core.edm.EdmProviderImpl
 import org.apache.olingo.server.api.OData
 import org.apache.olingo.server.api.serializer.EntitySerializerOptions
 import org.apache.olingo.server.core.ServiceMetadataImpl
+import org.apache.olingo.server.core.deserializer.json.ODataJsonDeserializer
 import org.apache.olingo.server.core.serializer.json.ODataJsonSerializer
 import org.apache.olingo.server.core.uri.parser.ExpandParser
 import org.apache.olingo.server.core.uri.parser.Parser
@@ -35,25 +36,17 @@ import org.apache.openjpa.persistence.criteria.CriteriaBuilderImpl
 import org.apache.openjpa.persistence.criteria.OpenJPACriteriaQuery
 import org.apache.openjpa.persistence.meta.MetamodelImpl
 import org.apache.openjpa.persistence.meta.Types
-import org.apache.openjpa.persistence.query.LiteralExpression
-import org.apache.openjpa.persistence.query.ParameterExpression
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.TestInstance
-import org.junit.jupiter.api.extension.ExtendWith
-import org.junit.jupiter.api.extension.RegisterExtension
-import org.springframework.boot.actuate.autoconfigure.metrics.MetricsProperties
 import org.springframework.boot.r2dbc.ConnectionFactoryBuilder
 import org.springframework.data.r2dbc.core.DefaultReactiveDataAccessStrategy
 import org.springframework.data.r2dbc.dialect.DialectResolver
 import org.springframework.data.relational.core.sql.Join.JoinType
 import reactor.core.publisher.Mono
 import reactor.kotlin.core.publisher.toFlux
+import reactor.test.StepVerifier
+import java.io.ByteArrayInputStream
 import java.net.URI
-import java.net.URL
-import java.time.Duration
-import java.time.temporal.TemporalUnit
 import java.util.Optional
-import java.util.Properties
 import java.util.UUID
 
 import kotlin.test.assertContains
@@ -64,7 +57,7 @@ class EdmEntityParserTests {
 
     fun getProvider(): EdmEntityProviderGenerated {
         return createFromClass(
-            listOf(ThingDao::class.java, SensorDao::class.java, DatastreamDao::class.java),
+            listOf(ThingDao::class.java, SensorDao::class.java, DatastreamDao::class.java, ProjectDao::class.java),
             listOf(UnitOfMeasurement::class.java)
         )
     }
@@ -174,6 +167,93 @@ class EdmEntityParserTests {
 
     }
 
+    fun getQueryFactory(): AbstractJpaExpressionFactory {
+        val metamodel = DynamicMetamodel();
+        val mmfactory = MetaModelFactory();
+        metamodel.addType(mmfactory.processClass(ThingDao::class.java))
+        metamodel.addType(mmfactory.processClass(DatastreamDao::class.java))
+        metamodel.addType(mmfactory.processClass(ProjectDao::class.java))
+        metamodel.addType(mmfactory.processClass(SensorDao::class.java))
+        metamodel.addType(mmfactory.processClass(UnitOfMeasurement::class.java))
+        return DefaultJpaExpressionFactory(metamodel)
+    }
+
+    @Test
+    fun simpleOdataServicePostTest() {
+        val provider = getProvider()
+        val edm = EdmProviderImpl(provider)
+        val qf = getQueryFactory()
+
+        val factory = ConnectionFactoryBuilder.withUrl("r2dbc:postgres://postgres:postgres@localhost/most").build()
+
+        val odata = ODataService(edm, provider, qf, factory)
+
+        val url = URI.create("Projects")
+
+        val bodyRaw = "{\n" +
+                "  \"id\": \"5f7f96c5-d7c6-47dd-8b45-bb97a99d07d9\",\n" +
+                "  \"name\": \"New Thing\"\n" +
+                "}"
+
+        val deserializer = ODataJsonDeserializer(ContentType.JSON);
+        val stream = ByteArrayInputStream(bodyRaw.toByteArray(Charsets.UTF_8))
+        val body = deserializer.entity(stream, edm.getEntityType(FullQualifiedName("Odata.MOSTServer", "Thing")))
+
+        odata.post(url, body.entity)
+    }
+
+    @Test
+    fun odataServiceNestedPostTest() {
+        val provider = getProvider()
+        val edm = EdmProviderImpl(provider)
+        val qf = getQueryFactory()
+
+        val factory = ConnectionFactoryBuilder.withUrl("r2dbc:postgres://postgres:postgres@localhost/most").build()
+
+        val odata = ODataService(edm, provider, qf, factory)
+
+        val url = URI.create("Projects(5f7f96c5-d7c6-47dd-8b45-bb97a99d07d9)/Things")
+
+        val bodyRaw = "{\n" +
+                "  \"id\": \"5f7f96c5-d7c6-47dd-8b45-bb97a99d07d9\",\n" +
+                "  \"name\": \"New Thing\"\n" +
+                "}"
+
+        val deserializer = ODataJsonDeserializer(ContentType.JSON);
+        val stream = ByteArrayInputStream(bodyRaw.toByteArray(Charsets.UTF_8))
+        val body = deserializer.entity(stream, edm.getEntityType(FullQualifiedName("Odata.MOSTServer", "Thing")))
+
+        StepVerifier
+            .create(odata.post(url, body.entity))
+            .expectNextCount(1)
+            .expectComplete()
+            .verify()
+    }
+
+    @Test
+    fun simpleOdataServicePutTest() {
+        val provider = getProvider()
+        val edm = EdmProviderImpl(provider)
+        val qf = getQueryFactory()
+
+        val factory = ConnectionFactoryBuilder.withUrl("r2dbc:postgres://postgres:postgres@localhost/most").build()
+
+        val odata = ODataService(edm, provider, qf, factory)
+
+        val url = URI.create("Projects(5f7f96c5-d7c6-47dd-8b45-bb97a99d07d9)/Things(9b95c641-c105-4082-978a-26796fb34dbc)")
+
+        val bodyRaw = "{\n" +
+                "  \"id\": \"5f7f96c5-d7c6-47dd-8b45-bb97a99d07d9\",\n" +
+                "  \"name\": \"New Thing\"\n" +
+                "}"
+
+        val deserializer = ODataJsonDeserializer(ContentType.JSON);
+        val stream = ByteArrayInputStream(bodyRaw.toByteArray(Charsets.UTF_8))
+        val body = deserializer.entity(stream, edm.getEntityType(FullQualifiedName("Odata.MOSTServer", "Thing")))
+
+        odata.put(url, body.entity)
+    }
+
     @Test
     fun applyProxy() {
         val dao = SensorDao(UUID.randomUUID())
@@ -193,7 +273,7 @@ class EdmEntityParserTests {
         val dp = createProxy(d, context)
         val tp = createProxy(tf, context)
         val dc = DatastreamDao(d.id, "DatastreamName", "DatastreamDescription", null, null, null, null, null, tp)
-        val t = ThingDao(tf.id, 0, "ThingName", listOf(dp))
+        val t = ThingDao(tf.id, 0, "ThingName", listOf(dp), null)
 
         context.addParameters(dc)
         context.addParameters(t)
